@@ -743,10 +743,18 @@ setInterval(loadFollowed, 5 * 60000);
 /* YouTube: neueste Videos aus der Liste, die GitHub automatisch aktualisiert. */
 const YOUTUBE = SERVICES.find(s => s.cls === "youtube");
 const YOUTUBE_DATA = "https://raw.githubusercontent.com/chammeleon07-blip/Test-smartstream-/main/youtube.json";
+const YOUTUBE_DIRECT = "https://old-art-7101.chammeleon07.workers.dev/";
 const YOUTUBE_LIVE = "https://api.github.com/repos/chammeleon07-blip/Test-smartstream-/contents/youtube.json";
 const fmtVideoDate = new Intl.DateTimeFormat("de-CH", { timeZone: "UTC", day: "numeric", month: "short" });
 /* Direkt bei GitHub fragen zeigt neue Videos sofort. Wird das Limit erreicht, hilft die zwischengespeicherte Liste aus. */
 async function fetchYoutubeList() {
+  try {
+    const r = await fetch(YOUTUBE_DIRECT, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (r.ok) {
+      const list = await r.clone().json();
+      if (Array.isArray(list) && list.length) return r;
+    }
+  } catch (e) { /* weiter mit der Liste von GitHub */ }
   try {
     const r = await fetch(YOUTUBE_LIVE, { cache: "no-store", headers: { Accept: "application/vnd.github.raw+json" } });
     if (r.ok) return r;
