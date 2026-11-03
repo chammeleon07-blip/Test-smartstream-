@@ -691,10 +691,10 @@ const TWITCH_CACHE = "followedCards";
 function readStore(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
 }
-function followedCard(login, name, game, art) {
+function followedCard(login, name, game, preview) {
   const safe = String(login).toLowerCase();
   const card = { t: name || safe, g: game ? "Live: " + game : "Gerade offline", url: SMARTSTREAM + "?channel=" + encodeURIComponent(safe) };
-  if (art) card.imgUrl = art.replace("{width}", "480").replace("{height}", "640");
+  if (preview) card.imgUrl = preview.replace("{width}", "640").replace("{height}", "400") + "?t=" + Date.now();
   else { card.icon = "play"; card.a = "#2a1259"; card.b = "#7c3aed"; }
   return card;
 }
@@ -718,10 +718,7 @@ async function loadFollowed() {
     };
     const live = (await helix("streams/followed?first=100&user_id=" + userId))
       .sort((a, b) => b.viewer_count - a.viewer_count).slice(0, 3);
-    const gameIds = [...new Set(live.map(s => s.game_id).filter(Boolean))];
-    const games = gameIds.length ? await helix("games?" + gameIds.map(id => "id=" + encodeURIComponent(id)).join("&")) : [];
-    const art = new Map(games.map(g => [g.id, g.box_art_url]));
-    const cards = live.map(s => followedCard(s.user_login, s.user_name, s.game_name, art.get(s.game_id)));
+    const cards = live.map(s => followedCard(s.user_login, s.user_name, s.game_name, s.thumbnail_url));
     if (cards.length < 3) {
       const seen = new Set(live.map(s => s.user_login.toLowerCase()));
       const followed = await helix("channels/followed?first=100&user_id=" + userId);
