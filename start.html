@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mein Programm</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<meta name="theme-color" content="#0f1a2a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
@@ -173,6 +176,22 @@ button.cal-day[aria-pressed="true"] .cal-dot.sport1 { background: #a86f00; }
 
 @media (min-width: 40rem) {
   .card-title { font-size: .86rem; }
+}
+
+/* Desktop im Querformat: Programm links, Sportkalender fest rechts */
+@media (min-width: 62rem) and (orientation: landscape) {
+  main { max-width: none; margin: 0 24rem 0 0; padding: 1.4rem 1.75rem 1.75rem; }
+  h1 { font-size: 1.7rem; }
+  .today { font-size: .92rem; margin-bottom: 1rem; }
+  #services { display: grid; grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr)); gap: 1rem; align-items: start; }
+  .service, .service:first-of-type { border: 1px solid var(--line); border-radius: .85rem; background: var(--surface); padding: .85rem; }
+  .cards { gap: .6rem; }
+  .card-sub { font-size: .76rem; }
+  .lower { top: 0; bottom: 0; left: auto; right: 0; width: 24rem; box-shadow: -10px 0 30px rgba(10, 20, 35, .22); }
+  .lower-inner { display: flex; flex-direction: column-reverse; justify-content: flex-end; height: 100%; max-width: none; }
+  .bar { flex: none; padding: .9rem 1rem; pointer-events: none; }
+  .chev { display: none; }
+  .sheet, .sheet[hidden] { display: block; flex: 1 1 0; min-height: 0; max-height: none; }
 }
 </style>
 </head>
