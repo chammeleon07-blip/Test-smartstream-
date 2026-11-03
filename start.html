@@ -163,7 +163,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
   <p class="notice" id="stand"></p>
 </main>
 
-<aside class="lower" aria-label="SRF Sport">
+<aside class="lower" aria-label="SRF Sport und Sport 1">
   <div class="lower-inner">
     <div class="sheet" id="sheet" hidden></div>
     <button class="bar" id="bar" type="button" aria-expanded="false" aria-controls="sheet">
@@ -353,9 +353,29 @@ function renderServices() {
   });
 }
 
+/* Darts-WM 2026/27: Startzeiten des Turniers in Schweizer Zeit. Die Sendezeiten von Sport 1 sind noch nicht bekannt. */
+const SPORT1_STREAM = "https://www.sport1.de/tv-video";
+const DARTS_EVENTS = [
+  ["2026-12-11T20:00", "1. Runde"], ["2026-12-12T13:30", "1. Runde"], ["2026-12-12T20:00", "1. Runde"],
+  ["2026-12-13T13:30", "1. Runde"], ["2026-12-13T20:00", "1. Runde"], ["2026-12-14T20:00", "1. Runde"],
+  ["2026-12-15T13:30", "1. Runde"], ["2026-12-15T20:00", "1. Runde"], ["2026-12-16T13:30", "1. Runde"],
+  ["2026-12-16T20:00", "1. Runde"], ["2026-12-17T13:30", "1. Runde"], ["2026-12-17T20:00", "1. Runde"],
+  ["2026-12-18T13:30", "1. Runde"], ["2026-12-18T20:00", "1. Runde"], ["2026-12-19T13:30", "1. Runde"],
+  ["2026-12-19T20:00", "1. Runde"], ["2026-12-20T13:30", "2. Runde"], ["2026-12-20T20:00", "2. Runde"],
+  ["2026-12-21T13:30", "2. Runde"], ["2026-12-21T20:00", "2. Runde"], ["2026-12-22T13:30", "2. Runde"],
+  ["2026-12-22T20:00", "2. Runde"], ["2026-12-23T13:30", "2. Runde"], ["2026-12-23T20:00", "2. Runde"],
+  ["2026-12-27T13:30", "3. Runde"], ["2026-12-27T20:00", "3. Runde"], ["2026-12-28T13:30", "3. Runde"],
+  ["2026-12-28T20:00", "3. Runde"], ["2026-12-29T13:30", "3. Runde"], ["2026-12-29T20:00", "3. und 4. Runde"],
+  ["2026-12-30T13:30", "4. Runde"], ["2026-12-30T20:00", "4. Runde"], ["2027-01-01T13:30", "Viertelfinals"],
+  ["2027-01-01T20:00", "Viertelfinals"], ["2027-01-02T20:30", "Halbfinals"], ["2027-01-03T21:00", "Finale"]
+].map(([t, name]) => ({
+  t: t + ":00+01:00", h: 4, sport: "Darts-WM", name, channel: "Sport 1", url: SPORT1_STREAM,
+  note: "Turnierbeginn. Sendezeit bei Sport 1 noch offen."
+}));
+
 function renderSport() {
   const now = new Date();
-  const upcoming = EVENTS
+  const upcoming = EVENTS.concat(DARTS_EVENTS)
     .map(e => ({ ...e, start: new Date(e.t) }))
     .filter(e => e.start.getTime() + e.h * 3600000 > now.getTime())
     .sort((a, b) => a.start - b.start);
@@ -373,7 +393,8 @@ function renderSport() {
   } else {
     const next = upcoming[0];
     const live = next.start <= now;
-    label.textContent = live ? "SRF Sport, läuft laut Plan gerade" : "SRF Sport, nächster Livestream";
+    const channel = next.channel || "SRF Sport";
+    label.textContent = channel + (live ? ", läuft laut Plan gerade" : ", nächster Livestream");
     title.textContent = next.sport + ": " + next.name;
     when.textContent = live
       ? next.note
@@ -391,7 +412,7 @@ function renderSport() {
     li.append(el("span", "event-note", e.note));
     if (e.url) {
       const note = el("span", "event-note");
-      const a = el("a", "", "Stream bei Play SRF öffnen");
+      const a = el("a", "", e.channel ? "Stream bei " + e.channel + " öffnen" : "Stream bei Play SRF öffnen");
       a.href = e.url; a.target = "_blank"; a.rel = "noopener";
       note.append(a);
       li.append(note);
