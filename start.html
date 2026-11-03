@@ -445,6 +445,7 @@ function renderServices() {
       const thumb = el("span", "thumb");
       if (item.img || item.imgUrl) {
         const pic = el("img");
+        if (item.imgFallback) pic.addEventListener("error", () => { pic.src = item.imgFallback; }, { once: true });
         pic.src = item.imgUrl || THUMBS[item.img];
         pic.alt = "";
         pic.width = 480;
@@ -739,6 +740,30 @@ try {
 } catch (e) {}
 loadFollowed();
 setInterval(loadFollowed, 5 * 60000);
+/* YouTube: neueste Videos aus der Liste, die GitHub automatisch aktualisiert. */
+const YOUTUBE = SERVICES.find(s => s.cls === "youtube");
+const YOUTUBE_DATA = "https://raw.githubusercontent.com/chammeleon07-blip/Test-smartstream-/main/youtube.json";
+const fmtVideoDate = new Intl.DateTimeFormat("de-CH", { timeZone: "UTC", day: "numeric", month: "short" });
+async function loadYoutube() {
+  try {
+    const r = await fetch(YOUTUBE_DATA);
+    if (!r.ok) return;
+    const videos = (await r.json()).filter(v => /^[\w-]{11}$/.test(v.id) && v.title && v.channel);
+    if (!videos.length) return;
+    YOUTUBE.items = videos.slice(0, 3).map(v => ({
+      t: v.title,
+      g: v.channel + ", " + fmtVideoDate.format(new Date(v.date + "T12:00:00Z")),
+      imgUrl: "https://i.ytimg.com/vi/" + v.id + "/maxresdefault.jpg",
+      imgFallback: "https://i.ytimg.com/vi/" + v.id + "/mqdefault.jpg",
+      url: "https://www.youtube.com/watch?v=" + v.id
+    }));
+    renderServices();
+  } catch (e) {
+    /* Ohne Verbindung bleiben die zuletzt angezeigten Videos. */
+  }
+}
+loadYoutube();
+setInterval(loadYoutube, 5 * 60000);
 async function loadSrfLive() {
   try {
     let url = SRF_API, list = [], pages = 0;
