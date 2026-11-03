@@ -158,8 +158,10 @@ button.cal-day[aria-pressed="true"] { background: #fff; color: var(--red-deep); 
 .cal-dots { position: absolute; left: 0; right: 0; bottom: .32rem; display: flex; justify-content: center; gap: .2rem; }
 .cal-dot { flex: none; display: block; width: .4rem; height: .4rem; border-radius: 50%; background: #fff; }
 .cal-dot.sport1 { background: #ffd23f; }
+.cal-dot.plus3 { background: #6ee7a0; }
 button.cal-day[aria-pressed="true"] .cal-dot { background: var(--red-deep); }
 button.cal-day[aria-pressed="true"] .cal-dot.sport1 { background: #a86f00; }
+button.cal-day[aria-pressed="true"] .cal-dot.plus3 { background: #0f7a45; }
 .cal-legend { display: flex; gap: 1rem; margin: .5rem 0 0; font-size: .76rem; }
 .cal-legend span { display: inline-flex; align-items: center; gap: .3rem; }
 .cal-title { margin: .8rem 0 0; font-size: .98rem; font-weight: 800; }
@@ -277,7 +279,7 @@ h1 { font-size: 2.05rem; line-height: 1; letter-spacing: -.035em; }
   <p class="notice" id="stand"></p>
 </main>
 
-<aside class="lower" aria-label="SRF Sport und Sport 1">
+<aside class="lower" aria-label="SRF Sport, Sport 1 und 3+ Adrenalin">
   <div class="lower-inner">
     <div class="sheet" id="sheet" hidden></div>
     <button class="bar" id="bar" type="button" aria-expanded="false" aria-controls="sheet">
@@ -489,6 +491,16 @@ const DARTS_EVENTS = [
   note: "Turnierbeginn. Sendezeit bei Sport 1 noch offen."
 }));
 
+/* EV Zug im Free-TV, laut Spielplan des Schweizer Eishockeyverbands (Stand 3.11.2026). */
+const EVZ_EVENTS = [
+  ["2026-11-24T19:45", "EV Zug – EHC Kloten"],
+  ["2026-12-16T19:45", "EV Zug – EHC Biel-Bienne"],
+  ["2027-01-05T19:45", "EV Zug – Fribourg-Gottéron"]
+].map(([t, name]) => ({
+  t: t + ":00+01:00", h: 3, sport: "Eishockey", name, channel: "3+ Adrenalin",
+  note: "National League, Free-TV auf 3+ Adrenalin"
+}));
+
 /* Monatskalender: Tage mit Terminen lassen sich antippen. */
 let calDay = null, calMonth = null;
 const fmtMonth = new Intl.DateTimeFormat("de-CH", { timeZone: "UTC", month: "long", year: "numeric" });
@@ -554,7 +566,8 @@ function renderCalendar(sheet, upcoming, now) {
       cell.setAttribute("aria-label", fmtLong.format(keyDate(key)) + ", " + list.length + (list.length === 1 ? " Termin" : " Termine"));
       const dots = el("span", "cal-dots");
       if (list.some(e => !e.channel)) dots.append(el("span", "cal-dot"));
-      if (list.some(e => e.channel)) dots.append(el("span", "cal-dot sport1"));
+      if (list.some(e => e.channel === "Sport 1")) dots.append(el("span", "cal-dot sport1"));
+      if (list.some(e => e.channel === "3+ Adrenalin")) dots.append(el("span", "cal-dot plus3"));
       cell.append(dots);
       cell.addEventListener("click", () => {
         selectCal(key, calMonth);
@@ -572,7 +585,7 @@ function renderCalendar(sheet, upcoming, now) {
     s.append(el("span", cls), text);
     return s;
   };
-  legend.append(mark("cal-dot", "SRF"), mark("cal-dot sport1", "Sport 1"));
+  legend.append(mark("cal-dot", "SRF"), mark("cal-dot sport1", "Sport 1"), mark("cal-dot plus3", "3+ Adrenalin"));
   sheet.append(legend);
 
   if (!calDay) {
@@ -603,7 +616,7 @@ function renderCalendar(sheet, upcoming, now) {
 
 function renderSport() {
   const now = new Date();
-  const upcoming = EVENTS.concat(DARTS_EVENTS)
+  const upcoming = EVENTS.concat(DARTS_EVENTS, EVZ_EVENTS)
     .map(e => ({ ...e, start: new Date(e.t) }))
     .filter(e => e.start.getTime() + e.h * 3600000 > now.getTime())
     .sort((a, b) => a.start - b.start);
@@ -625,7 +638,7 @@ function renderSport() {
     const next = upcoming[0];
     const live = next.start <= now;
     const channel = next.channel || "SRF Sport";
-    label.textContent = channel + (live ? ", läuft laut Plan gerade" : ", nächster Livestream");
+    label.textContent = channel + (live ? ", läuft laut Plan gerade" : next.channel === "3+ Adrenalin" ? ", nächste Übertragung" : ", nächster Livestream");
     title.textContent = next.sport + ": " + next.name;
     when.textContent = live
       ? next.note
@@ -640,7 +653,7 @@ function renderSport() {
   if (upcoming.length) renderCalendar(sheet, upcoming, now);
   const foot = el("p", "sheet-foot");
   const rare = upcoming.some(e => /^(Rad|Radsport|Bahnrad|Strassenrad|Mountainbike|Bike|Radquer|Querfeldein|Cyclocross|Triathlon|OL|Orientierungslauf)/.test(e.sport));
-  const league = upcoming.some(e => /National League/.test(e.note + e.name));
+  const league = upcoming.some(e => !e.channel && /National League/.test(e.note + e.name));
   const missing = (rare ? [] : ["Rad", "Triathlon", "OL"]).concat(league ? [] : ["National League"]);
   foot.append((missing.length ? missing.join(", ") + ": zurzeit keine Livestreams bei SRF geplant. " : "") + "Ohne Stream-Link ist die Übertragung noch nicht bei SRF aufgeführt. ");
   const all = el("a", "", "Alle Sport-Livestreams ansehen");
