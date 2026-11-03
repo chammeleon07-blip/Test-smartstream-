@@ -6,7 +6,7 @@
 <title>Mein Programm</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
-<meta name="theme-color" content="#0f1a2a">
+<meta name="theme-color" content="#15122b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
@@ -203,6 +203,69 @@ button.cal-day[aria-pressed="true"] .cal-dot.sport1 { background: #a86f00; }
   .sport-hidden main { margin-right: 0; }
   .sport-hidden .lower { display: none; }
 }
+/* Gestaltung: Programmheft mit Haupttipp pro Sender und einer Bauchbinde wie im Fernsehen */
+:root { --bg: #efedf6; --surface: #fbfaff; --ink: #1b1733; --muted: #5a5573; --line: #d4d0e3; --focus: #4b39c9; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #15122b; --surface: #211d3d; --ink: #f3f1fb; --muted: #aaa5c4; --line: #352f58; --focus: #b3a8ff; }
+}
+:root[data-theme="dark"] { --bg: #15122b; --surface: #211d3d; --ink: #f3f1fb; --muted: #aaa5c4; --line: #352f58; --focus: #b3a8ff; }
+main { padding-top: 1.25rem; padding-bottom: calc(6.25rem + env(safe-area-inset-bottom, 0px)); }
+h1 { font-size: 2.05rem; line-height: 1; letter-spacing: -.035em; }
+.today { margin: .3rem 0 0; font-size: .9rem; }
+.service, .service:first-of-type { margin-top: 1.5rem; padding: 0; border: 0; background: none; }
+.service-head { margin-bottom: .55rem; }
+.chip { min-height: 1.85rem; padding: .15rem .6rem; border-radius: .4rem; font-size: .88rem; }
+.cards { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: .65rem; }
+.thumb { border-radius: .6rem; }
+.thumb svg { width: 38%; height: 52%; }
+.card-title { margin-top: .32rem; font-size: .8rem; line-height: 1.22; }
+.card-sub { margin-top: .1rem; font-size: .72rem; }
+.card:first-child {
+  position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+  grid-row: span 2; min-height: 12.75rem; padding: .8rem; border-radius: .9rem; color: #fff;
+}
+.card:only-child { grid-column: 1 / -1; }
+.card:first-child .thumb { position: absolute; inset: 0; z-index: -2; aspect-ratio: auto; border-radius: 0; }
+.card:first-child .thumb svg { width: 36%; height: 36%; margin-bottom: 30%; stroke-width: 1.1; opacity: .72; }
+.card:first-child::after {
+  content: ""; position: absolute; inset: 35% 0 0; z-index: -1;
+  background: linear-gradient(to bottom, rgba(15, 11, 34, 0), rgba(15, 11, 34, .94) 72%);
+}
+.card:first-child .card-title {
+  margin: 0; font: 800 1.28rem/1.08 "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif; letter-spacing: -.02em; -webkit-line-clamp: 3;
+}
+.card:first-child .card-sub { margin-top: .22rem; font-size: .8rem; color: rgba(255, 255, 255, .86); }
+.card:first-child .badge { left: .55rem; top: .55rem; bottom: auto; font-size: .72rem; }
+@media (hover: hover) { .card:hover .card-title { text-decoration: underline; text-underline-offset: 2px; } }
+.notice { font-size: .84rem; }
+.bar { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 4.1rem; padding: .5rem .8rem; }
+.now-time {
+  display: flex; flex-direction: column; justify-content: center; min-width: 4.9rem; min-height: 3rem; padding: .2rem .55rem;
+  border-radius: .45rem; background: #fff; color: var(--red-deep); text-align: center; white-space: nowrap;
+}
+.now-time:empty { display: none; }
+.now-time-day { font-size: .68rem; font-weight: 600; line-height: 1.2; }
+.now-time-clock { font: 800 1.16rem/1.1 "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif; letter-spacing: -.02em; }
+.now-label { font-size: .72rem; }
+.now-title { font-size: 1.02rem; }
+.now-when { font-size: .78rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .card:active { transform: scale(.985); }
+  .sheet:not([hidden]) { animation: sheet-in .18s ease-out; }
+  @keyframes sheet-in { from { opacity: 0; transform: translateY(.6rem); } }
+}
+@media (min-width: 62rem) and (orientation: landscape) {
+  main { padding: 1.75rem 2.25rem 2.25rem; }
+  h1 { font-size: 2.6rem; }
+  .today { margin-bottom: 0; font-size: 1rem; }
+  #services { margin-top: 1.75rem; gap: 2rem 2.25rem; }
+  .service, .service:first-of-type { margin-top: 0; padding: 0; border: 0; background: none; }
+  .card:first-child { min-height: 14rem; }
+  .card:first-child .card-title { font-size: 1.45rem; }
+  .sport-toggle { top: 1.75rem; right: 2.25rem; }
+  .bar { padding: .95rem 1rem; }
+  .sheet:not([hidden]) { animation: none; }
+}
 </style>
 </head>
 <body>
@@ -218,6 +281,7 @@ button.cal-day[aria-pressed="true"] .cal-dot.sport1 { background: #a86f00; }
   <div class="lower-inner">
     <div class="sheet" id="sheet" hidden></div>
     <button class="bar" id="bar" type="button" aria-expanded="false" aria-controls="sheet">
+      <span class="now-time" id="nowTime"></span>
       <span>
         <span class="now-label" id="nowLabel">SRF Sport, nächster Livestream</span>
         <span class="now-title" id="nowTitle"></span>
@@ -546,6 +610,8 @@ function renderSport() {
   const title = document.getElementById("nowTitle");
   const when = document.getElementById("nowWhen");
   const label = document.getElementById("nowLabel");
+  const nowTime = document.getElementById("nowTime");
+  nowTime.textContent = "";
   const sheet = document.getElementById("sheet");
   const keepScroll = sheet.scrollTop;
   sheet.textContent = "";
@@ -562,7 +628,12 @@ function renderSport() {
     title.textContent = next.sport + ": " + next.name;
     when.textContent = live
       ? next.note
-      : fmtDay.format(next.start) + ", " + fmtTime.format(next.start) + " Uhr, " + relative(next.start, now);
+      : relative(next.start, now);
+    if (live) {
+      nowTime.append(el("span", "now-time-clock", "Live"));
+    } else {
+      nowTime.append(el("span", "now-time-day", fmtDay.format(next.start)), el("span", "now-time-clock", fmtTime.format(next.start)));
+    }
   }
 
   if (upcoming.length) renderCalendar(sheet, upcoming, now);
