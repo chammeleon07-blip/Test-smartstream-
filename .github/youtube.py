@@ -36,7 +36,7 @@ def newest(name, channel_id):
     for video_id, title, published in ENTRY.findall(feed):
         title = html.unescape(title)
         if "#" not in title and not is_short(video_id):
-            return {"id": video_id, "title": title, "channel": name, "date": published[:10]}
+            return {"id": video_id, "title": title, "channel": name, "date": published[:10], "published": published}
     return None
 
 
@@ -49,7 +49,7 @@ for name, channel_id in CHANNELS.items():
     except Exception as error:
         print("Übersprungen:", name, error, file=sys.stderr)
 
-videos.sort(key=lambda v: v["date"], reverse=True)
+videos.sort(key=lambda v: v["published"], reverse=True)
 if len(videos) < 3:
     sys.exit("Zu wenige Videos gefunden, die Liste bleibt unverändert.")
 with open("youtube.json", "w", encoding="utf-8") as out:
