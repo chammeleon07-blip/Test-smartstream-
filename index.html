@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://player.twitch.tv https://embed.twitch.tv; style-src 'unsafe-inline'; img-src https://*.jtvnw.net https://*.twitch.tv https://cdn.7tv.app; connect-src https://api.twitch.tv https://id.twitch.tv https://7tv.io wss://irc-ws.chat.twitch.tv; frame-src https://player.twitch.tv https://clips.twitch.tv https://embed.twitch.tv; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://player.twitch.tv https://embed.twitch.tv; style-src 'unsafe-inline'; img-src https://*.jtvnw.net https://*.twitch.tv https://cdn.7tv.app; connect-src https://api.twitch.tv https://id.twitch.tv https://7tv.io wss://irc-ws.chat.twitch.tv; frame-src https://player.twitch.tv https://clips.twitch.tv https://embed.twitch.tv; worker-src 'self'; form-action 'none'; base-uri 'none'">
 <title>Smartstream</title>
 <style>
 :root{
@@ -2155,11 +2155,23 @@ function setPrompt(login) {
   }
   if (login && S.notify && 'Notification' in window && Notification.permission === 'granted') {
     const ch = S.channels.get(login);
-    try {
-      const n = new Notification(`${ch.name} geht gerade ab`, { body: Hype.reasons(ch).join(' · ') || 'Mehr los als im aktuellen Stream', tag: 'hype' });
-      n.onclick = () => { window.focus(); n.close(); };
-    } catch { /* manche Browser erlauben das nicht */ }
+    showHint(`${ch.name} geht gerade ab`, Hype.reasons(ch).join(' · ') || 'Mehr los als im aktuellen Stream', 'hype');
   }
+}
+
+/* Auf dem Handy erlaubt Chrome Hinweise nur über einen Service Worker. */
+const canHint = 'Notification' in window && (!isTouch || 'serviceWorker' in navigator);
+async function showHint(title, body, tag) {
+  try {
+    if (isTouch) {
+      await navigator.serviceWorker.register('sw.js');
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(title, { body, tag, icon: 'icon-192.png' });
+    } else {
+      const n = new Notification(title, { body, tag });
+      n.onclick = () => { window.focus(); n.close(); };
+    }
+  } catch { /* manche Browser erlauben das nicht */ }
 }
 
 function drawSpark(ch, now) {
@@ -2362,8 +2374,9 @@ function render() {
   const problem = S.apiError || (S.firstLoadDone && Chat.ws && !Chat.connected ? 'Chat-Verbindung wird wiederhergestellt …' : '');
   state.textContent = problem || `Angemeldet als ${S.login}. Chat in ${Chat.wanted.size} Kanälen.`;
   state.classList.toggle('warn', !!problem);
-  $('notifyBtn').hidden = isTouch; // Desktop-Hinweise gibt es auf dem Handy so nicht
-  $('notifyBtn').textContent = S.notify ? 'Desktop-Hinweise aus' : 'Desktop-Hinweise an';
+  $('notifyBtn').hidden = !canHint; // In der Android-App gibt es keine Hinweise
+  const hintName = isTouch ? 'Handy-Hinweise' : 'Desktop-Hinweise';
+  $('notifyBtn').textContent = S.notify ? hintName + ' aus' : hintName + ' an';
 }
 
 /* ---------- Ablauf ---------- */
@@ -2577,11 +2590,12 @@ $('setReset').onclick = () => { S.prefs = { ch: {}, game: {} }; store.setJson('p
 $('logoutBtn').onclick = () => loggedOut('');
 $('notifyBtn').onclick = async () => {
   if (S.notify) { S.notify = false; store.set('notify', '0'); render(); return; }
-  if (!('Notification' in window)) return;
+  if (!canHint) return;
   const perm = await Notification.requestPermission();
   S.notify = perm === 'granted';
   store.set('notify', S.notify ? '1' : '0');
   render();
+  if (S.notify) showHint('Smartstream', 'Testhinweis: Benachrichtigungen funktionieren.', 'test');
 };
 
 /* Handys frieren die Seite im Hintergrund ein: beim Zurückkommen neu aufsetzen. */
