@@ -715,6 +715,9 @@ function login() {
 
 function readRedirect() {
   const query = new URLSearchParams(location.search);
+  // Direktlink ?channel=name: bleibt über eine nötige Twitch-Anmeldung hinweg gemerkt.
+  const wanted = (query.get('channel') || '').toLowerCase();
+  if (/^[a-z0-9_]{1,25}$/.test(wanted)) { try { sessionStorage.setItem('wantedChannel', wanted); } catch {} }
   const hash = new URLSearchParams(location.hash.slice(1));
   let msg = '';
   if (query.get('error')) msg = 'Twitch hat die Anmeldung abgelehnt: ' + (query.get('error_description') || query.get('error'));
@@ -2466,12 +2469,33 @@ async function guarded(fn) {
   }
 }
 
+// Öffnet den Kanal aus einem Direktlink. Ist er offline, startet die Seite wie gewohnt.
+async function openWantedChannel() {
+  let login = null;
+  try { login = sessionStorage.getItem('wantedChannel'); } catch {}
+  if (!login) return;
+  if (!S.channels.has(login)) {
+    const d = await api('streams', [['user_login', login]]);
+    if (!d.data.length) {
+      try { sessionStorage.removeItem('wantedChannel'); } catch {}
+      Toast.add(`${login} ist gerade nicht live.`);
+      return;
+    }
+    S.extra.add(login);
+    upsertStream(d.data[0], Date.now());
+  }
+  try { sessionStorage.removeItem('wantedChannel'); } catch {}
+  play(login);
+}
+
 async function startApp() {
   $('setup').hidden = true;
   $('app').hidden = false;
   render();
   Chat.start();
   await guarded(refreshStreams);
+  if (!S.token) return;
+  await guarded(openWantedChannel);
   if (!S.token) return;
   await guarded(refreshClips);
   if (!S.token) return;
