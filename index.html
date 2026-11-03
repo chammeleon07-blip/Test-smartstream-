@@ -96,7 +96,6 @@ input[type=text]{width:100%;padding:9px 11px;background:var(--bg);color:var(--te
 #list button.star:hover{background:var(--hover)}
 #list button.star.on{background:none;color:#ff5fb7}
 #list .name{padding-right:26px}
-#side #clipsPanel h2{height:auto;line-height:1.4;font-size:12px;padding:6px 14px;border-bottom:1px solid var(--line)}
 #dock{grid-column:1;grid-row:3;min-width:0;background:var(--panel);border-top:2px solid;border-image:var(--grad) 1}
 #dockHead{display:flex;align-items:center;gap:8px;height:32px;padding:0 14px;font-size:12px;font-weight:600}
 #dockHead span{flex:1;min-width:0}
@@ -163,13 +162,6 @@ dialog input[type=checkbox]{accent-color:#c44dff;width:16px;height:16px;flex:non
 .why.calm{color:var(--muted)}
 .meter{grid-column:1/4;height:3px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
 .meter i{display:block;height:100%;background:var(--grad)}
-#clipsPanel{flex:0 0 auto;display:flex;flex-direction:column;border-top:1px solid var(--line);min-height:0}
-#clips{margin:0;padding:0;list-style:none;overflow:auto;max-height:24vh}
-#clips button{display:grid;grid-template-columns:48px minmax(0,1fr);gap:0 8px;width:100%;padding:5px 14px;text-align:left;background:none;border-radius:0;border-bottom:1px solid var(--line)}
-#clips button:hover{background:var(--panel2)}
-#clips button.on{background:var(--grad-v) left/3px 100% no-repeat,var(--panel2)}
-#clips img{grid-row:1/3;width:48px;height:27px;align-self:center;object-fit:cover;border-radius:3px;background:var(--bg)}
-#clips .note{padding:10px 14px;color:var(--muted);font-size:12px}
 .ctitle{font-size:12px;line-height:1.3;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cmeta{font-size:11px;line-height:1.3;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #mini{position:fixed;z-index:10;width:404px;background:linear-gradient(var(--panel),var(--panel)) padding-box,var(--grad) border-box;border:2px solid transparent;border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)}
@@ -201,14 +193,12 @@ dialog input[type=checkbox]{accent-color:#c44dff;width:16px;height:16px;flex:non
   #side{grid-column:1;grid-row:4;border-left:0}
   #side h2{height:auto;line-height:40px}
   #list{overflow:visible;flex:none}
-  #clips{max-height:none;overflow:visible}
   #multiBtn{display:none}
   #betBox button{min-height:44px}
   #list button.star{width:44px;height:44px;line-height:44px;top:0;right:44px}
   .prow{min-height:44px}
   .bingo button{height:56px;font-size:12px}
   .bingoHead button{min-height:44px}
-  #clips button{padding:8px 16px}
   #foot button{flex:1 1 40%;font-size:13px}
   /* Auf dem Handy passt kein zweiter Player: der Chat-Tipp wird zum Hinweis ohne Video. */
   #mini{left:16px!important;right:16px;top:auto!important;bottom:16px;width:auto}
@@ -283,10 +273,6 @@ dialog input[type=checkbox]{accent-color:#c44dff;width:16px;height:16px;flex:non
     <h2>Gerade live: Hype und deine Streams</h2>
     <div id="toasts" aria-live="polite"></div>
     <ul id="list"></ul>
-    <section id="clipsPanel">
-      <h2>Beste Clips, letzte 6 Stunden</h2>
-      <ul id="clips"></ul>
-    </section>
     <div id="foot">
       <span id="state"></span>
       <button id="miniBtn"></button>
@@ -398,11 +384,9 @@ const CFG = {
   mentionBlockMs: 900000,   // geschlossener Mini-Stream bleibt so lange weg
   snoozeMs: 300000,         // „Später“ blendet diesen Kanal so lange aus
   clipChannels: 60,         // Clips nur für die größten N Kanäle abfragen
-  topClipHours: 6,          // Zeitraum des Clip-Panels in Stunden
-  topClipCount: 8,          // so viele Clips zeigt das Panel
-  topClipPerChannel: 2,     // höchstens so viele Clips pro Kanal
+  topClipHours: 6,          // Zeitraum der Clip-Abfrage in Stunden
   topClipChannels: 300,     // höchstens so viele gefolgte Kanäle durchsuchen
-  topClipsMs: 30000,        // so oft holt das Clip-Panel neue Clips von Kanälen, die live sind
+  topClipsMs: 30000,        // so oft werden neue Clips von Kanälen geholt, die live sind
   topClipsOfflineMs: 600000, // so oft bei Kanälen, die offline sind
   reactionWindowMs: 60000,  // Zeitraum für die aktuellen Reaktionen
   reactionMin: 2,           // ein Emote erscheint ab so vielen Personen
@@ -677,7 +661,7 @@ const S = {
   settings: { predict: true, events: true, rain: true, showSound: true, quietOn: false, from: '23:00', to: '08:00', mode: 'none', ...store.json('settings', {}) },
   hiddenGames: new Set(store.json('hiddenGames', [])), favorites: new Set(store.json('favorites', [])),
   prefs: store.json('prefs', { ch: {}, game: {} }), toasts: [], multi: null, show: null, dockClosed: store.get('dockClosed') === '1',
-  clipCache: new Map(), followedIds: [], followedAt: 0, topBusy: false, playedAt: 0, miniOn: store.get('mini') !== '0', mini: null, extra: new Set(), blocked: new Map(), knownLogins: new Set(), auto: store.get('auto') === '1', clip: null, clipAuto: false, topClips: null, firstLoadDone: false, notify: store.get('notify') === '1', apiError: '',
+  clipCache: new Map(), followedIds: [], followedAt: 0, topBusy: false, playedAt: 0, miniOn: store.get('mini') !== '0', mini: null, extra: new Set(), blocked: new Map(), knownLogins: new Set(), auto: store.get('auto') === '1', clip: null, clipAuto: false, firstLoadDone: false, notify: store.get('notify') === '1', apiError: '',
 };
 const SCOPES = ['user:read:follows', 'chat:read'];
 const REDIRECT = location.origin + location.pathname.replace(/index\.html$/, '');
@@ -870,9 +854,7 @@ async function refreshTopClips() {
     const min = now - CFG.topClipHours * 3600000;
     const pool = [...S.clipCache.values()].flatMap(c => c.clips).filter(c => Date.parse(c.created_at) >= min);
     if (failed && !pool.length) throw new Error('Clips nicht verfügbar');
-    S.topClips = Hype.pickTopClips(pool, CFG.topClipCount, CFG.topClipPerChannel);
-    Show.collect(pool, now);
-    renderClips();
+    Show.collect(pool, now); // die Tageshighlights brauchen diese Clips weiterhin
   } finally { S.topBusy = false; }
 }
 
@@ -2159,29 +2141,6 @@ function agoText(iso) {
   return `vor ${Math.round(min / 60)} Std.`;
 }
 
-function renderClips() {
-  const box = $('clips');
-  const scroll = box.scrollTop;
-  const note = text => { const li = document.createElement('li'); li.className = 'note'; li.textContent = text; return li; };
-  if (S.topClips === null) { box.replaceChildren(note('Clips werden geladen …')); return; }
-  if (!S.topClips.length) { box.replaceChildren(note('Keine neuen Clips in diesem Zeitraum.')); return; }
-  box.replaceChildren(...S.topClips.map(c => {
-    const li = document.createElement('li');
-    const b = document.createElement('button');
-    b.className = S.clip && S.clip.id === c.id ? 'on' : '';
-    b.onclick = () => { Show.clear(); playClip(c); };
-    const img = document.createElement('img');
-    img.alt = ''; img.loading = 'lazy'; if (c.thumbnail_url) img.src = c.thumbnail_url;
-    const title = document.createElement('div'); title.className = 'ctitle'; title.textContent = c.title || 'Clip';
-    const meta = document.createElement('div'); meta.className = 'cmeta';
-    meta.textContent = `${c.broadcaster_name} · ${(c.view_count || 0).toLocaleString('de')} Aufrufe · ${agoText(c.created_at)}`;
-    b.setAttribute('aria-label', `Clip ansehen: ${c.title || 'Clip'}, ${meta.textContent}`);
-    b.append(img, title, meta);
-    li.append(b);
-    return li;
-  }));
-  box.scrollTop = scroll;
-}
 
 function setPrompt(login) {
   if (login === S.prompt) return;
@@ -2377,7 +2336,6 @@ function render() {
   }));
   list.scrollTop = scroll;
 
-  renderClips();
   renderPanel(Date.now());
   const closed = isDockClosed();
   $('dock').classList.toggle('closed', closed);
@@ -2414,7 +2372,7 @@ function stopAll() {
   timers.forEach(clearInterval); timers = [];
   Chat.stop();
   $('player').removeAttribute('src');
-  S.channels.clear(); S.current = null; S.prompt = null; S.lead = null; S.firstLoadDone = false; S.clip = null; S.clipAuto = false; S.topClips = null;
+  S.channels.clear(); S.current = null; S.prompt = null; S.lead = null; S.firstLoadDone = false; S.clip = null; S.clipAuto = false;
   Show.clear(); Multi.stop(); S.toasts = [];
   S.clipCache.clear(); S.followedIds = []; S.followedAt = 0; closeMini(false); S.extra.clear(); S.blocked.clear(); S.knownLogins.clear(); Mentions.clear();
   clearTimeout(clipTimer);
@@ -2504,7 +2462,7 @@ async function startApp() {
   timers.push(setInterval(tick, CFG.tickMs));
   timers.push(setInterval(() => guarded(refreshStreams), CFG.streamsMs));
   timers.push(setInterval(() => guarded(refreshClips), CFG.clipsMs));
-  // Das Clip-Panel läuft still mit: Ein Aussetzer behält die alten Clips und ändert die Statuszeile nicht.
+  // Die Clips für die Tageshighlights laufen still mit: Ein Aussetzer ändert die Statuszeile nicht.
   const topClipsQuiet = () => refreshTopClips().catch(e => {
     if (e instanceof AuthError) loggedOut('Deine Twitch-Anmeldung ist abgelaufen. Bitte neu anmelden.');
   });
