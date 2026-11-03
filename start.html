@@ -178,8 +178,16 @@ button.cal-day[aria-pressed="true"] .cal-dot.sport1 { background: #a86f00; }
   .card-title { font-size: .86rem; }
 }
 
+.sport-toggle { display: none; }
+
 /* Desktop im Querformat: Programm links, Sportkalender fest rechts */
 @media (min-width: 62rem) and (orientation: landscape) {
+  main { position: relative; }
+  .sport-toggle {
+    display: inline-flex; align-items: center; position: absolute; top: 1.4rem; right: 1.75rem;
+    min-height: 2.5rem; padding: .3rem .85rem; border: 1px solid var(--line); border-radius: .6rem;
+    background: var(--surface); color: var(--ink); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
+  }
   main { max-width: none; margin: 0 24rem 0 0; padding: 1.4rem 1.75rem 1.75rem; }
   h1 { font-size: 1.7rem; }
   .today { font-size: .92rem; margin-bottom: 1rem; }
@@ -192,12 +200,15 @@ button.cal-day[aria-pressed="true"] .cal-dot.sport1 { background: #a86f00; }
   .bar { flex: none; padding: .9rem 1rem; pointer-events: none; }
   .chev { display: none; }
   .sheet, .sheet[hidden] { display: block; flex: 1 1 0; min-height: 0; max-height: none; }
+  .sport-hidden main { margin-right: 0; }
+  .sport-hidden .lower { display: none; }
 }
 </style>
 </head>
 <body>
 <main>
   <h1>Mein Programm</h1>
+  <button class="sport-toggle" id="sportToggle" type="button"></button>
   <p class="today" id="today"></p>
   <div id="services"></div>
   <p class="notice" id="stand"></p>
@@ -579,6 +590,18 @@ bar.addEventListener("click", () => setOpen(sheetEl.hidden));
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && !sheetEl.hidden) { setOpen(false); bar.focus(); }
 });
+
+/* Sportkalender am Desktop aus- und einblenden, die Wahl bleibt gespeichert. */
+const sportToggle = document.getElementById("sportToggle");
+function setSportHidden(hidden) {
+  document.body.classList.toggle("sport-hidden", hidden);
+  sportToggle.textContent = hidden ? "Sport einblenden" : "Sport ausblenden";
+  try { localStorage.setItem("sportHidden", hidden ? "1" : "0"); } catch (e) {}
+}
+let sportHiddenSaved = false;
+try { sportHiddenSaved = localStorage.getItem("sportHidden") === "1"; } catch (e) {}
+setSportHidden(sportHiddenSaved);
+sportToggle.addEventListener("click", () => setSportHidden(!document.body.classList.contains("sport-hidden")));
 
 document.getElementById("today").textContent = fmtToday.format(new Date());
 renderServices();
