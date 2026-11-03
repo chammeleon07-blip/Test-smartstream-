@@ -132,7 +132,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .now-when { display: block; font-size: .76rem; }
 .chev { font-size: .76rem; font-weight: 600; white-space: nowrap; }
 .sheet {
-  max-height: min(66vh, 34rem);
+  max-height: min(78vh, 42rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--red-deep);
@@ -140,6 +140,27 @@ a, button { -webkit-tap-highlight-color: transparent; }
 }
 .sheet[hidden] { display: none; }
 .sheet ul { list-style: none; margin: 0; padding: 0; }
+.cal-head { display: grid; grid-template-columns: 2.75rem 1fr 2.75rem; align-items: center; margin: .25rem 0 .35rem; }
+.cal-month { text-align: center; font-weight: 800; font-size: 1.02rem; }
+.cal-nav { appearance: none; height: 2.75rem; background: transparent; border: 0; border-radius: .6rem; color: #fff; font: inherit; font-size: 1.35rem; font-weight: 700; cursor: pointer; }
+.cal-nav:disabled { opacity: .3; cursor: default; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .15rem; }
+.cal-dow { text-align: center; font-size: .72rem; font-weight: 600; padding-bottom: .15rem; }
+.cal-day { appearance: none; position: relative; min-height: 2.75rem; padding: .3rem 0 .85rem; background: transparent; border: 0; border-radius: .6rem; color: inherit; font: inherit; font-size: .92rem; text-align: center; }
+.cal-day:not(button) { opacity: .62; }
+.cal-day.outside { visibility: hidden; }
+button.cal-day { background: rgba(255, 255, 255, .13); font-weight: 700; cursor: pointer; }
+.cal-day.today { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85); }
+button.cal-day[aria-pressed="true"] { background: #fff; color: var(--red-deep); }
+.cal-dots { position: absolute; left: 0; right: 0; bottom: .32rem; display: flex; justify-content: center; gap: .2rem; }
+.cal-dot { flex: none; display: block; width: .4rem; height: .4rem; border-radius: 50%; background: #fff; }
+.cal-dot.sport1 { background: #ffd23f; }
+button.cal-day[aria-pressed="true"] .cal-dot { background: var(--red-deep); }
+button.cal-day[aria-pressed="true"] .cal-dot.sport1 { background: #a86f00; }
+.cal-legend { display: flex; gap: 1rem; margin: .5rem 0 0; font-size: .76rem; }
+.cal-legend span { display: inline-flex; align-items: center; gap: .3rem; }
+.cal-title { margin: .8rem 0 0; font-size: .98rem; font-weight: 800; }
+.cal-day:focus-visible, .cal-nav:focus-visible { outline-color: #fff; }
 .event { padding: .7rem 0; border-bottom: 1px solid rgba(255, 255, 255, .22); }
 .event:last-child { border-bottom: 0; }
 .event-top { display: flex; justify-content: space-between; gap: .75rem; font-size: .84rem; }
@@ -172,7 +193,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
         <span class="now-title" id="nowTitle"></span>
         <span class="now-when" id="nowWhen"></span>
       </span>
-      <span class="chev" id="chev">Alle Termine</span>
+      <span class="chev" id="chev">Kalender</span>
     </button>
   </div>
 </aside>
@@ -373,6 +394,118 @@ const DARTS_EVENTS = [
   note: "Turnierbeginn. Sendezeit bei Sport 1 noch offen."
 }));
 
+/* Monatskalender: Tage mit Terminen lassen sich antippen. */
+let calDay = null, calMonth = null;
+const fmtMonth = new Intl.DateTimeFormat("de-CH", { timeZone: "UTC", month: "long", year: "numeric" });
+const fmtLong = new Intl.DateTimeFormat("de-CH", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
+const keyDate = key => new Date(key + "T12:00:00Z");
+function shiftMonth(month, by) {
+  const d = new Date(month + "-15T12:00:00Z");
+  d.setUTCMonth(d.getUTCMonth() + by);
+  return d.toISOString().slice(0, 7);
+}
+function selectCal(day, month) {
+  calDay = day;
+  calMonth = month;
+  renderSport();
+}
+function renderCalendar(sheet, upcoming, now) {
+  const days = new Map();
+  upcoming.forEach(e => {
+    const key = fmtKey.format(e.start);
+    if (!days.has(key)) days.set(key, []);
+    days.get(key).push(e);
+  });
+  const keys = [...days.keys()].sort();
+  if (!calDay || !days.has(calDay)) {
+    const inMonth = calMonth && keys.find(k => k.startsWith(calMonth));
+    calDay = inMonth || (calMonth && calMonth > keys[0].slice(0, 7) && calMonth <= keys[keys.length - 1].slice(0, 7) ? null : keys[0]);
+    if (calDay) calMonth = calDay.slice(0, 7);
+  }
+  const first = keys[0].slice(0, 7), last = keys[keys.length - 1].slice(0, 7);
+
+  const head = el("div", "cal-head");
+  const nav = (text, label, by, off) => {
+    const b = el("button", "cal-nav", text);
+    b.type = "button";
+    b.setAttribute("aria-label", label);
+    b.disabled = off;
+    b.addEventListener("click", () => {
+      const month = shiftMonth(calMonth, by);
+      selectCal(keys.find(k => k.startsWith(month)) || null, month);
+    });
+    return b;
+  };
+  head.append(
+    nav("‹", "Vorheriger Monat", -1, calMonth <= first),
+    el("div", "cal-month", fmtMonth.format(keyDate(calMonth + "-15"))),
+    nav("›", "Nächster Monat", 1, calMonth >= last)
+  );
+  sheet.append(head);
+
+  const grid = el("div", "cal-grid");
+  ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].forEach(d => grid.append(el("div", "cal-dow", d)));
+  const start = keyDate(calMonth + "-01");
+  for (let i = 0; i < (start.getUTCDay() + 6) % 7; i++) grid.append(el("div", "cal-day outside"));
+  const todayKey = fmtKey.format(now);
+  for (const d = new Date(start); d.toISOString().slice(0, 7) === calMonth; d.setUTCDate(d.getUTCDate() + 1)) {
+    const key = d.toISOString().slice(0, 10);
+    const list = days.get(key);
+    const cell = el(list ? "button" : "div", "cal-day" + (key === todayKey ? " today" : ""), String(d.getUTCDate()));
+    if (list) {
+      cell.type = "button";
+      cell.dataset.day = key;
+      cell.setAttribute("aria-pressed", String(key === calDay));
+      cell.setAttribute("aria-label", fmtLong.format(keyDate(key)) + ", " + list.length + (list.length === 1 ? " Termin" : " Termine"));
+      const dots = el("span", "cal-dots");
+      if (list.some(e => !e.channel)) dots.append(el("span", "cal-dot"));
+      if (list.some(e => e.channel)) dots.append(el("span", "cal-dot sport1"));
+      cell.append(dots);
+      cell.addEventListener("click", () => {
+        selectCal(key, calMonth);
+        const again = sheet.querySelector('[data-day="' + key + '"]');
+        if (again) again.focus();
+      });
+    }
+    grid.append(cell);
+  }
+  sheet.append(grid);
+
+  const legend = el("div", "cal-legend");
+  const mark = (cls, text) => {
+    const s = el("span");
+    s.append(el("span", cls), text);
+    return s;
+  };
+  legend.append(mark("cal-dot", "SRF"), mark("cal-dot sport1", "Sport 1"));
+  sheet.append(legend);
+
+  if (!calDay) {
+    sheet.append(el("p", "cal-title", "In diesem Monat ist nichts geplant."));
+    return;
+  }
+  sheet.append(el("h2", "cal-title", fmtLong.format(keyDate(calDay))));
+  const ul = el("ul");
+  days.get(calDay).forEach(e => {
+    const li = el("li", "event");
+    const top = el("div", "event-top");
+    top.append(el("span", "", fmtTime.format(e.start) + " Uhr"));
+    top.append(el("span", "", e.sport));
+    li.append(top);
+    li.append(el("span", "event-name", e.name));
+    if (e.note) li.append(el("span", "event-note", e.note));
+    if (e.url) {
+      const note = el("span", "event-note");
+      const a = el("a", "", e.channel ? "Stream bei " + e.channel + " öffnen" : "Stream bei Play SRF öffnen");
+      a.href = e.url; a.target = "_blank"; a.rel = "noopener";
+      note.append(a);
+      li.append(note);
+    }
+    ul.append(li);
+  });
+  sheet.append(ul);
+}
+
 function renderSport() {
   const now = new Date();
   const upcoming = EVENTS.concat(DARTS_EVENTS)
@@ -384,6 +517,7 @@ function renderSport() {
   const when = document.getElementById("nowWhen");
   const label = document.getElementById("nowLabel");
   const sheet = document.getElementById("sheet");
+  const keepScroll = sheet.scrollTop;
   sheet.textContent = "";
 
   if (!upcoming.length) {
@@ -401,25 +535,7 @@ function renderSport() {
       : fmtDay.format(next.start) + ", " + fmtTime.format(next.start) + " Uhr, " + relative(next.start, now);
   }
 
-  const ul = el("ul");
-  upcoming.forEach(e => {
-    const li = el("li", "event");
-    const top = el("div", "event-top");
-    top.append(el("span", "", fmtDay.format(e.start) + ", " + fmtTime.format(e.start) + " Uhr"));
-    top.append(el("span", "", e.sport));
-    li.append(top);
-    li.append(el("span", "event-name", e.name));
-    li.append(el("span", "event-note", e.note));
-    if (e.url) {
-      const note = el("span", "event-note");
-      const a = el("a", "", e.channel ? "Stream bei " + e.channel + " öffnen" : "Stream bei Play SRF öffnen");
-      a.href = e.url; a.target = "_blank"; a.rel = "noopener";
-      note.append(a);
-      li.append(note);
-    }
-    ul.append(li);
-  });
-  sheet.append(ul);
+  if (upcoming.length) renderCalendar(sheet, upcoming, now);
   const foot = el("p", "sheet-foot");
   const rare = upcoming.some(e => /^(Rad|Radsport|Bahnrad|Strassenrad|Mountainbike|Bike|Radquer|Querfeldein|Cyclocross|Triathlon|OL|Orientierungslauf)/.test(e.sport));
   const league = upcoming.some(e => /National League/.test(e.note + e.name));
@@ -429,6 +545,7 @@ function renderSport() {
   all.href = SRF_LIST; all.target = "_blank"; all.rel = "noopener";
   foot.append(all);
   sheet.append(foot);
+  sheet.scrollTop = keepScroll;
 }
 
 const bar = document.getElementById("bar");
@@ -437,7 +554,7 @@ const chev = document.getElementById("chev");
 function setOpen(open) {
   sheetEl.hidden = !open;
   bar.setAttribute("aria-expanded", String(open));
-  chev.textContent = open ? "Schliessen" : "Alle Termine";
+  chev.textContent = open ? "Schliessen" : "Kalender";
 }
 bar.addEventListener("click", () => setOpen(sheetEl.hidden));
 document.addEventListener("keydown", e => {
