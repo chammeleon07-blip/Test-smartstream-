@@ -1,0 +1,2638 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://player.twitch.tv https://embed.twitch.tv; style-src 'unsafe-inline'; img-src https://*.jtvnw.net https://*.twitch.tv https://cdn.7tv.app; connect-src https://api.twitch.tv https://id.twitch.tv https://7tv.io wss://irc-ws.chat.twitch.tv; frame-src https://player.twitch.tv https://clips.twitch.tv https://embed.twitch.tv; form-action 'none'; base-uri 'none'">
+<title>Smartstream</title>
+<style>
+:root{
+  --bg:#120b18; --panel:#1c1226; --panel2:#2b1c3b; --line:#3b2a52; --hover:#35234a;
+  --text:#f4eefb; --muted:#b8a9c9; --ink:#14081f; --bad:#ff8a8a; --soft:#ecdff7;
+  --grad:linear-gradient(90deg,#ff5fb7,#b565ff,#8a6bff);
+  --grad-v:linear-gradient(180deg,#ff5fb7,#b565ff,#8a6bff);
+  --grad-loop:linear-gradient(90deg,#ff5fb7,#b565ff,#8a6bff,#b565ff,#ff5fb7);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.4 system-ui,"Segoe UI",Roboto,sans-serif}
+button,input{font:inherit}
+button{cursor:pointer;border:0;border-radius:6px;padding:8px 14px;background:var(--panel2);color:var(--text)}
+button:hover{background:var(--hover)}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:2px}
+button.primary{background:var(--grad);color:var(--ink);font-weight:600}
+button.primary:hover{background:var(--grad);filter:brightness(1.12)}
+[hidden]{display:none!important}
+a{color:#ff9ed6}
+
+/* Einrichtung */
+#setup{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.card{width:100%;max-width:560px;background:linear-gradient(var(--panel),var(--panel)) padding-box,var(--grad) border-box;border:2px solid transparent;border-radius:10px;padding:24px}
+.card h1{margin:0 0 6px;font-size:24px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.card p{margin:0 0 14px;color:var(--muted)}
+.card ol{margin:0 0 18px;padding-left:20px}
+.card li{margin-bottom:8px}
+code{background:var(--panel2);padding:2px 6px;border-radius:4px;font-size:13px;white-space:nowrap}
+label{display:block;margin-bottom:6px;font-weight:600}
+input[type=text]{width:100%;padding:9px 11px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;margin-bottom:14px}
+.err{color:var(--bad);margin:0 0 14px}
+
+/* Hauptansicht */
+#app{height:100%;display:grid;grid-template-columns:minmax(0,1fr) 340px;grid-template-rows:60px minmax(0,1fr) auto}
+#bar{grid-column:1;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--panel);border-bottom:2px solid;border-image:var(--grad) 1;position:relative;min-width:0}
+#bar.suggest{background:var(--grad-loop);background-size:200% 100%;color:var(--ink);animation:rainbowShift 8s linear infinite;border-image:none;border-bottom-color:transparent}
+@keyframes rainbowShift{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){#bar.suggest{animation:none}}
+#bar .txt{flex:1;min-width:0}
+#bar .l1{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bar .l2{font-size:12px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bar.suggest button{background:rgba(255,255,255,.45);color:var(--ink);white-space:nowrap}
+#bar.suggest button:hover{background:rgba(255,255,255,.65)}
+#bar.suggest button.primary{background:var(--ink);color:#fff}
+#bar.suggest button.primary:hover{background:#2c1740}
+#bar #autoBtn,#bar #multiBtn{flex:none;white-space:nowrap;font-weight:600}
+#bar>*{position:relative;z-index:1}
+#bar #autoBtn.on,#bar #multiBtn.on{background:var(--grad);color:var(--ink)}
+#bar #autoBtn.on:hover,#bar #multiBtn.on:hover{filter:brightness(1.12)}
+#stage{grid-column:1;grid-row:2;background:#000;position:relative;min-width:0}
+#stage>iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+#multi{position:absolute;inset:0;display:grid;gap:4px;background:#000}
+#stage.a2>#player,#stage.a4>#player{left:2px;top:32px;right:auto;bottom:auto;width:calc(50% - 6px);z-index:2}
+#stage.a2>#player{height:calc(100% - 34px)}
+#stage.a4>#player{height:calc(50% - 36px)}
+#multi.n2{grid-template-columns:1fr 1fr}
+#multi.n4{grid-template:1fr 1fr/1fr 1fr}
+.cell{display:flex;flex-direction:column;min-width:0;min-height:0;border:2px solid transparent}
+.cell.loud{border-image:var(--grad) 1}
+.cellHead{display:flex;align-items:center;gap:8px;flex:none;height:30px;padding:0 8px;background:var(--panel);font-size:12px}
+.cellHead .n{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cellHead button{padding:2px 8px;font-size:11px}
+.cellHead button.on{background:var(--grad);color:var(--ink)}
+.cellPlayer{flex:1;min-height:0}
+.cellPlayer iframe{display:block;width:100%;height:100%;border:0}
+#sparkBox{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px;width:104px}
+#spark{display:block;width:104px;height:30px}
+#sparkLabel{font-size:11px;line-height:1.1;white-space:nowrap}
+@media (max-width:1400px){#bar.suggest #sparkBox{display:none}}
+#rain{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+#rain img{position:absolute;left:100%;width:28px;height:28px;object-fit:contain;animation:flyLeft 5s linear forwards;opacity:.9}
+@keyframes flyLeft{to{transform:translateX(-110vw)}}
+#toasts{flex:none;display:flex;flex-direction:column}
+#toasts button{width:100%;text-align:left;border-radius:0;background:var(--grad);color:var(--ink);font-weight:600;font-size:12px;padding:8px 14px;border-bottom:1px solid var(--ink)}
+#toasts button:hover{filter:brightness(1.12)}
+#betBox{flex:none;padding:10px 14px;border-bottom:2px solid;border-image:var(--grad) 1;background:var(--panel2);font-size:12px}
+#betBox .bt{font-weight:700;font-size:13px;margin-bottom:2px}
+#betBox .bs{color:var(--muted);margin-bottom:8px}
+#betBox .bq{color:var(--soft);margin-bottom:8px;font-style:italic;overflow-wrap:anywhere}
+#betBox .brow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+#betBox .brow+.brow{margin-top:6px}
+#betBox button{padding:5px 10px;font-size:12px;background:var(--hover)}
+#betBox button:hover{filter:brightness(1.2)}
+#betBox button.pick{flex:1 1 40%;font-weight:600;background:var(--grad);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#betBox button.chip.on{background:var(--soft);color:var(--ink);font-weight:600}
+#list li{position:relative}
+#list li.dim{opacity:.5}
+#list button.star{display:block;position:absolute;top:6px;right:50px;width:26px;height:26px;padding:0;background:none;border:0;border-radius:4px;color:var(--muted);font-size:15px;line-height:26px;text-align:center}
+#list button.star:hover{background:var(--hover)}
+#list button.star.on{background:none;color:#ff5fb7}
+#list .name{padding-right:26px}
+#side #clipsPanel h2{height:auto;line-height:1.4;font-size:12px;padding:6px 14px;border-bottom:1px solid var(--line)}
+#dock{grid-column:1;grid-row:3;min-width:0;background:var(--panel);border-top:2px solid;border-image:var(--grad) 1}
+#dockHead{display:flex;align-items:center;gap:8px;height:32px;padding:0 14px;font-size:12px;font-weight:600}
+#dockHead span{flex:1;min-width:0}
+#dockHead button{padding:2px 10px;font-size:11px}
+#dockBody{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1.1fr);height:248px;border-top:1px solid var(--line)}
+#dock.closed #dockBody{display:none}
+.dcol{overflow:auto;min-width:0;font-size:12px;border-right:1px solid var(--line)}
+.dcol:last-child{border-right:0}
+.dcol h3{margin:0;padding:6px 14px;font-size:13px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+#showStart{margin:4px 14px 8px}
+#showSound{margin:4px 0 8px;padding:5px 10px;font-size:12px}
+#showCard{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;overflow:hidden;background:var(--grad-loop);background-size:200% 100%;color:var(--ink);animation:rainbowShift 8s linear infinite}
+#showCard>*{animation:popIn .5s ease-out both}
+#showCard>*:nth-child(2){animation-delay:.12s}
+#showCard>*:nth-child(3){animation-delay:.24s}
+#showCard>*:nth-child(4){animation-delay:.36s}
+#showCard>*:nth-child(5){animation-delay:.48s}
+@keyframes popIn{from{opacity:0;transform:translateY(16px) scale(.92)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#showCard,#showCard>*{animation:none}}
+.sRank{font-size:clamp(40px,9vw,88px);font-weight:800;line-height:1}
+.sName{font-size:clamp(18px,3vw,28px);font-weight:700}
+.sTitle{font-size:clamp(15px,2.2vw,22px);max-width:700px;overflow-wrap:anywhere}
+.sThumb{width:min(280px,60%);aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:3px solid var(--ink);background:var(--ink)}
+.sFact{font-size:14px;font-weight:600}
+.sJoke{font-size:clamp(15px,2vw,20px);font-style:italic}
+.prow{display:flex;gap:8px;align-items:center;width:100%;padding:6px 14px;text-align:left;background:none;border-radius:0;border-bottom:1px solid var(--line)}
+.prow .main{flex:1;min-width:0}
+.prow .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .s{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .v{flex:none;font-weight:700;font-variant-numeric:tabular-nums}
+.bingoHead{display:flex;align-items:center;gap:8px;padding:6px 14px;font-size:11px;color:var(--muted)}
+.bingoHead span{flex:1;min-width:0}
+.bingoHead button{padding:3px 8px;font-size:11px;flex:none}
+.bingo{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:0 14px 8px}
+.bingo button{display:flex;align-items:center;justify-content:center;gap:3px;height:38px;min-width:0;padding:2px;font-size:10px;line-height:1.1;overflow:hidden;overflow-wrap:anywhere;text-align:center;background:var(--panel2)}
+.bingo button.hit{background:var(--grad);color:var(--ink);font-weight:700}
+.bingo button.line{outline:2px solid #fff;outline-offset:-2px}
+.bingo img{width:18px;height:18px;object-fit:contain;flex:none}
+.pnote{padding:10px 14px;color:var(--muted)}
+dialog{background:var(--panel);color:var(--text);border:2px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,var(--grad) border-box;border-radius:10px;padding:20px;width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto}
+dialog::backdrop{background:rgba(10,4,16,.7)}
+dialog h3{margin:0 0 12px;font-size:17px}
+dialog h4{margin:16px 0 6px;font-size:13px}
+dialog label{display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:6px}
+dialog p{margin:0 0 8px;font-size:12px;color:var(--muted)}
+dialog input[type=time],dialog select{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit}
+dialog input[type=checkbox]{accent-color:#c44dff;width:16px;height:16px;flex:none}
+.drow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+#setClose{margin-top:14px}
+#empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--muted)}
+#side{grid-column:2;grid-row:1/4;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--line);min-height:0}
+#side h2{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;margin:0;font-size:13px;line-height:60px;padding:0 14px;height:60px;border-bottom:1px solid var(--line);flex:none}
+#list{flex:1;overflow:auto;margin:0;padding:0;list-style:none}
+#list button{display:grid;grid-template-columns:64px minmax(0,1fr) 34px;gap:2px 10px;width:100%;padding:10px 14px;text-align:left;background:none;border-radius:0;border-bottom:1px solid var(--line)}
+#list button:hover{background:var(--panel2)}
+#list button.on{background:var(--grad-v) left/3px 100% no-repeat,var(--panel2)}
+#list img{grid-row:1/4;width:64px;height:36px;object-fit:cover;border-radius:3px;background:var(--bg)}
+.name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score{grid-row:1/3;grid-column:3;text-align:right;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.meta,.why{grid-column:2;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.why{grid-column:2/4;color:var(--soft)}
+#list .why img.emote{display:inline;width:18px;height:18px;object-fit:contain;vertical-align:-4px;border-radius:0;background:none}
+.why .count{font-size:10px;color:var(--muted);margin:0 6px 0 1px}
+.why.calm{color:var(--muted)}
+.meter{grid-column:1/4;height:3px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--grad)}
+#clipsPanel{flex:0 0 auto;display:flex;flex-direction:column;border-top:1px solid var(--line);min-height:0}
+#clips{margin:0;padding:0;list-style:none;overflow:auto;max-height:24vh}
+#clips button{display:grid;grid-template-columns:48px minmax(0,1fr);gap:0 8px;width:100%;padding:5px 14px;text-align:left;background:none;border-radius:0;border-bottom:1px solid var(--line)}
+#clips button:hover{background:var(--panel2)}
+#clips button.on{background:var(--grad-v) left/3px 100% no-repeat,var(--panel2)}
+#clips img{grid-row:1/3;width:48px;height:27px;align-self:center;object-fit:cover;border-radius:3px;background:var(--bg)}
+#clips .note{padding:10px 14px;color:var(--muted);font-size:12px}
+.ctitle{font-size:12px;line-height:1.3;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmeta{font-size:11px;line-height:1.3;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mini{position:fixed;z-index:10;width:404px;background:linear-gradient(var(--panel),var(--panel)) padding-box,var(--grad) border-box;border:2px solid transparent;border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#miniHead{display:flex;align-items:center;gap:8px;height:36px;padding:0 6px 0 10px;cursor:move;touch-action:none;user-select:none;font-size:12px}
+#miniText{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#miniText b{font-weight:600}
+#miniHead button{padding:3px 8px;font-size:12px;flex:none}
+#miniFrame{display:block;width:100%;height:300px;border:0;background:#000}
+#miniResize{position:absolute;right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 50%,#ff5fb7 50%,#8a6bff);border-bottom-right-radius:6px}
+#barEmotes{display:flex;gap:4px;align-items:center;flex:none}
+#barEmotes img{width:28px;height:28px;object-fit:contain}
+#barEmotes .count{font-size:11px;font-weight:600;margin:0 4px 0 -2px}
+#foot{flex:none;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+#foot button{padding:5px 10px;font-size:12px}
+#state{flex:1 1 100%}
+#state.warn{color:var(--bad)}
+
+@media (max-width:820px){
+  #app{height:auto;min-height:100%;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto auto}
+  #dockBody{grid-template-columns:minmax(0,1fr);height:auto}
+  .dcol{overflow:visible;border-right:0;border-bottom:1px solid var(--line)}
+  #dockHead button,#showStart,#showSound{min-height:44px}
+  #bar{min-height:60px;flex-wrap:wrap;gap:8px;padding:8px 16px}
+  #bar .txt{flex:1 1 50%}
+  #bar #yes,#bar #no,#bar #back,#bar #showNext{flex:1 1 40%}
+  #bar button,#foot button,#miniHead button{min-height:44px}
+  /* Player bleibt beim Scrollen oben stehen. 300px ist Twitchs Mindesthöhe. */
+  #stage{grid-row:2;width:100%;height:max(300px,56.25vw);position:sticky;top:0;z-index:5}
+  #side{grid-column:1;grid-row:4;border-left:0}
+  #side h2{height:auto;line-height:40px}
+  #list{overflow:visible;flex:none}
+  #clips{max-height:none;overflow:visible}
+  #multiBtn{display:none}
+  #betBox button{min-height:44px}
+  #list button.star{width:44px;height:44px;line-height:44px;top:0;right:44px}
+  .prow{min-height:44px}
+  .bingo button{height:56px;font-size:12px}
+  .bingoHead button{min-height:44px}
+  #clips button{padding:8px 16px}
+  #foot button{flex:1 1 40%;font-size:13px}
+  /* Auf dem Handy passt kein zweiter Player: der Chat-Tipp wird zum Hinweis ohne Video. */
+  #mini{left:16px!important;right:16px;top:auto!important;bottom:16px;width:auto}
+  #miniHead{height:auto;padding:8px 10px;cursor:default;touch-action:auto;flex-wrap:wrap;font-size:13px}
+  #miniText{flex:1 1 100%;white-space:normal}
+  #miniHead button{flex:1 1 40%}
+  #miniFrame,#miniResize{display:none}
+  #mini{width:auto!important}
+}
+</style>
+</head>
+<body>
+
+<main id="setup" hidden>
+  <div class="card">
+    <h1>Smartstream</h1>
+    <p>Beobachtet alle Twitch-Kanäle, denen du folgst, und schlägt dir den Wechsel vor, sobald woanders mehr los ist.</p>
+    <p class="err" id="setupErr" hidden></p>
+    <div id="firstRun">
+      <ol>
+        <li>Öffne die <a href="https://dev.twitch.tv/console/apps/create" target="_blank" rel="noopener">Twitch-Entwicklerkonsole</a>. Twitch verlangt dafür aktive Zwei-Faktor-Anmeldung.</li>
+        <li>Name frei wählen, als OAuth-Redirect-URL eintragen: <code id="redirect"></code></li>
+        <li>Kategorie „Application Integration“, Client-Typ „Öffentlich“ (Public), Bot-Abfrage bestätigen, erstellen.</li>
+        <li>Über „Verwalten“ die Client-ID kopieren und hier einfügen.</li>
+      </ol>
+      <p>Du hast schon eine Twitch-App? Dann ergänze unter „Verwalten“ nur die Adresse aus Schritt 2 als weitere Redirect-URL und füge hier deine Client-ID ein.</p>
+      <label for="clientId">Client-ID</label>
+      <input id="clientId" type="text" autocomplete="off" spellcheck="false">
+    </div>
+    <button class="primary" id="loginBtn">Mit Twitch anmelden</button>
+    <button id="changeId" hidden>Client-ID ändern</button>
+  </div>
+</main>
+
+<div id="app" hidden>
+  <div id="bar">
+    <button id="autoBtn" aria-pressed="false" title="Wenn an, wechselt die Seite ohne Nachfrage und ohne Clip zum vorgeschlagenen Stream"></button>
+    <button id="multiBtn" aria-pressed="false" title="Erweitert deinen Stream um andere aus derselben Kategorie mit ähnlichem Titel"></button>
+    <div class="txt"><div class="l1" id="l1"></div><div class="l2" id="l2"></div></div>
+    <div id="sparkBox" hidden><svg id="spark" viewBox="0 0 104 30" preserveAspectRatio="none" role="img"></svg><span id="sparkLabel"></span></div>
+    <div id="barEmotes" aria-label="Aktuelle Reaktionen im Chat"></div>
+    <button class="primary" id="yes" hidden>Wechseln</button>
+    <button id="no" hidden>Später</button>
+    <button id="showNext" hidden>Nächste Szene</button>
+    <button id="back" hidden>Zurück zum Stream</button>
+    <div id="rain" aria-hidden="true"></div>
+  </div>
+  <div id="stage">
+    <div id="empty">Suche nach Streams …</div>
+    <iframe id="player" title="Twitch-Player" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen hidden></iframe>
+    <div id="multi" hidden></div>
+    <div id="showCard" hidden></div>
+  </div>
+  <section id="dock">
+    <div id="dockHead"><span>Tageshighlights, Wetten und Bingo</span><button id="dockBtn"></button></div>
+    <div id="dockBody">
+      <div class="dcol"><h3>Tageshighlights</h3><div id="showBox"></div></div>
+      <div class="dcol"><h3>Wetten</h3><div id="betBox" aria-live="polite" hidden></div><div id="betHistory"></div></div>
+      <div class="dcol"><h3>Bingo</h3><div id="bingoBox"></div></div>
+    </div>
+  </section>
+  <div id="mini" hidden>
+    <div id="miniHead" title="Zum Verschieben ziehen">
+      <span id="miniText"></span>
+      <button id="miniBig">Groß</button>
+      <button id="miniClose" aria-label="Mini-Stream schließen">✕</button>
+    </div>
+    <iframe id="miniFrame" title="Im Chat erwähnter Stream" allow="autoplay; fullscreen" allowfullscreen></iframe>
+    <div id="miniResize" title="Zum Vergrößern oder Verkleinern ziehen"></div>
+  </div>
+  <aside id="side">
+    <h2>Gerade live: Hype und deine Streams</h2>
+    <div id="toasts" aria-live="polite"></div>
+    <ul id="list"></ul>
+    <section id="clipsPanel">
+      <h2>Beste Clips, letzte 6 Stunden</h2>
+      <ul id="clips"></ul>
+    </section>
+    <div id="foot">
+      <span id="state"></span>
+      <button id="miniBtn"></button>
+      <button id="notifyBtn">Desktop-Hinweise an</button>
+      <button id="setBtn">Einstellungen</button>
+      <button id="logoutBtn">Abmelden</button>
+    </div>
+  </aside>
+</div>
+
+<dialog id="settings" aria-labelledby="setTitle">
+  <h3 id="setTitle">Einstellungen</h3>
+  <label><input type="checkbox" id="setMini"> Kleinen Stream öffnen, wenn der Chat oft einen anderen Streamer nennt</label>
+  <label><input type="checkbox" id="setPredict"> Hype-Vorhersage: schon vorschlagen, wenn der Chat anzieht</label>
+  <label><input type="checkbox" id="setEvents"> Event-Hinweise bei Raids, Sub-Wellen und Bits</label>
+  <label><input type="checkbox" id="setRain"> Emote-Regen in der oberen Leiste</label>
+  <label><input type="checkbox" id="setShowSound"> Extrasounds in den Tageshighlights</label>
+  <h4>Ruhezeiten im Automodus</h4>
+  <label><input type="checkbox" id="setQuietOn"> Ruhezeiten verwenden</label>
+  <div class="drow">
+    <label for="setFrom" style="margin:0">Von</label><input type="time" id="setFrom">
+    <label for="setTo" style="margin:0">bis</label><input type="time" id="setTo">
+  </div>
+  <div class="drow">
+    <label for="setMode" style="margin:0">In dieser Zeit</label>
+    <select id="setMode"><option value="none">gar nicht automatisch wechseln</option><option value="high">nur bei sehr hohem Hype wechseln</option></select>
+  </div>
+  <h4>Spiele ausblenden</h4>
+  <p>Ausgeblendete Spiele werden nicht mehr vorgeschlagen.</p>
+  <div id="setGames"></div>
+  <h4>Dein Geschmack</h4>
+  <p id="setPrefs"></p>
+  <button id="setReset">Gelerntes zurücksetzen</button>
+  <div><button class="primary" id="setClose">Fertig</button></div>
+</dialog>
+
+<script>
+'use strict';
+
+/* ---------- Einstellungen: hier lässt sich das Verhalten anpassen ---------- */
+const CFG = {
+  tickMs: 10000,            // so oft wird der Hype neu berechnet
+  streamsMs: 60000,         // so oft werden die Live-Kanäle abgefragt
+  clipsMs: 180000,          // so oft werden neue Clips abgefragt
+  weights: { surge: 35, react: 15, engage: 10, growth: 20, clips: 20 }, // Summe = 100
+  growthGraceMs: 600000,    // so lange nach Streamstart zählt der Zuschauer-Zuwachs nicht
+  margin: 10,               // Vorsprung in Punkten, ab dem ein Wechsel vorgeschlagen wird
+  minScore: 15,             // Mindest-Hype für einen Vorschlag
+  leadTicks: 2,             // so viele Messungen in Folge muss der Vorsprung halten
+  cooldownMs: 60000,       // Mindestabstand zwischen zwei Vorschlägen
+  clipBufferMs: 3000,       // Ladezeit, die zur Clip-Länge dazugerechnet wird
+  predictAheadMs: 30000,    // Vorhersage: so weit wird der aktuelle Anstieg in die Zukunft gerechnet
+  predictMax: 15,           // höchstens so viele Punkte Vorhersage-Bonus
+  favBonus: 10,             // Punkte-Bonus für Favoriten
+  learnStep: 2,             // so viele Punkte zählt eine Entscheidung
+  learnMax: 12,             // höchstens so viele Punkte Bonus oder Abzug aus dem Gelernten
+  quietHigh: 60,            // ab diesem Hype darf der Automodus in Ruhezeiten wechseln
+  eventRaid: 50,            // Hinweis ab so vielen Leuten im Raid
+  eventGift: 10,            // Hinweis ab so vielen Geschenk-Subs
+  eventSubs: 10,            // Sub-Welle: so viele Subs in einer Minute
+  eventBits: 1000,          // so viele Bits in einer Minute
+  eventRepeatMs: 300000,    // gleiche Art von Hinweis pro Kanal höchstens so oft
+  toastMs: 30000,           // so lange bleibt ein Hinweis stehen
+  moodMin: 5,               // Stimmung erst ab so vielen passenden Nachrichten
+  moodShare: 0.2,           // und diesem Anteil an allen Nachrichten
+  rainMin: 6,               // Emote-Regen ab so vielen Personen
+  rainRepeatMs: 45000,      // dasselbe Emote höchstens so oft
+  titlePartShare: 0.4,      // Multi-View: Teilwort muss so viel vom längeren Wort ausmachen
+  multiAudioMargin: 8,      // der Ton wechselt erst ab diesem Vorsprung
+  multiAudioMinMs: 20000,   // und frühestens nach dieser Zeit
+  watchMinMinutes: 10,      // ab so viel Schauzeit zählt ein Kanal als „oft geschaut“
+  watchMaxBonus: 30,        // so viele Punkte kann die Schauzeit in der Liste höchstens bringen
+  watchHalfLifeDays: 30,    // nach so vielen Tagen zählt alte Schauzeit nur noch halb
+  bingoPeople: 2,           // Bingo: so viele Leute müssen ein Wort schreiben
+  bingoShare: 0.03,         // in großen Chats mindestens dieser Anteil der aktiven Leute
+  bingoWindowMs: 30000,     // innerhalb dieser Zeit
+  bingoLine: 20,            // Punkte für eine volle Reihe
+  bingoFull: 100,           // Punkte für die volle Karte
+  showScenes: 8,            // Tageshighlights: so viele Szenen
+  showPerChannel: 2,        // höchstens so viele pro Kanal
+  showMinScenes: 2,         // die Show startet ab so vielen Clips
+  showCardMs: 4500,         // so lange steht die Grafik vor jeder Szene
+  showOutroMs: 6000,        // so lange steht die Schlussgrafik
+  betPeople: 3,             // Live-Wette: so viele Leute müssen dasselbe Duell nennen
+  betPeopleOpen: 4,         // so viele bei allgemeinen Ja/Nein-Fragen wie „kauft er das?“
+  betWindowMs: 90000,       // innerhalb dieser Zeit
+  betOpenMs: 180000,        // so lange kannst du tippen
+  betStakes: [10, 25, 50],  // mögliche Einsätze
+  betWinPeople: 5,          // so viele Leute müssen denselben Sieger nennen
+  betWinLead: 3,            // und so viel mehr als für die andere Seite
+  betMinMs: 60000,          // frühestens so lange nach dem Erkennen gibt es einen Sieger
+  betClaimMs: 120000,       // Sieger-Meldungen zählen so lange
+  betMaxMs: 1800000,        // danach gilt die Wette als unklar, der Einsatz bleibt erhalten
+  betIgnoreMs: 1800000,     // ein weggeklicktes oder beendetes Duell bleibt so lange weg
+  betQuestionRepeatMs: 600000, // gleiche Art von Ja/Nein-Wette kommt frühestens danach wieder
+  betShowMs: 60000,         // so lange bleibt das Ergebnis stehen
+  mentionDelayMs: 30000,    // so lange nach dem Öffnen eines Streams geht noch kein kleiner Stream auf
+  mentionWindowMs: 120000,  // Zeitraum, in dem Erwähnungen im Chat gezählt werden
+  mentionStrong: 3,         // so viele Personen bei @Name, Twitch-Link oder gefolgtem Kanal
+  mentionWord: 6,           // so viele Personen, wenn der Name nur als normales Wort fällt
+  mentionWordViewers: 50,   // Mindest-Zuschauer bei normalen Wörtern, gegen Zufallstreffer
+  mentionPartial: 4,        // so viele Personen, wenn ein Wort Teil eines gefolgten Kanalnamens ist
+  mentionPartialWord: 8,    // so viele Personen, wenn ein Wort Teil eines fremden Kanalnamens ist
+  mentionPartialViewers: 200, // Mindest-Zuschauer, wenn ein Wort Teil eines fremden Kanalnamens ist
+  mentionPartialShare: 0.4, // das Wort muss mindestens so viel vom Kanalnamen ausmachen („hugo“ in „letshugotv“)
+  aliases: {                // Spitznamen, die im Kanalnamen nicht vorkommen oder sicher erkannt werden sollen
+    hugo: 'letshugotv',     // Form: spitzname: 'twitchname' (alles klein geschrieben)
+  },
+  mentionBlockMs: 900000,   // geschlossener Mini-Stream bleibt so lange weg
+  snoozeMs: 300000,         // „Später“ blendet diesen Kanal so lange aus
+  clipChannels: 60,         // Clips nur für die größten N Kanäle abfragen
+  topClipHours: 6,          // Zeitraum des Clip-Panels in Stunden
+  topClipCount: 8,          // so viele Clips zeigt das Panel
+  topClipPerChannel: 2,     // höchstens so viele Clips pro Kanal
+  topClipChannels: 300,     // höchstens so viele gefolgte Kanäle durchsuchen
+  topClipsMs: 30000,        // so oft holt das Clip-Panel neue Clips von Kanälen, die live sind
+  topClipsOfflineMs: 600000, // so oft bei Kanälen, die offline sind
+  reactionWindowMs: 60000,  // Zeitraum für die aktuellen Reaktionen
+  reactionMin: 2,           // ein Emote erscheint ab so vielen Personen
+  reactionShown: 5,         // so viele Emotes werden gezeigt
+  miniMinW: 240, miniMinH: 135, // kleinste Größe des Mini-Streams, Twitch nennt eigentlich 400 x 300
+  joinGapMs: 550,           // Twitch erlaubt 20 Chat-Beitritte pro 10 Sekunden
+};
+const BOTS = new Set(['nightbot','streamelements','streamlabs','moobot','fossabot','wizebot','soundalerts','sery_bot']);
+const HYPE_WORDS = /\b(pog\w*|kekw|omegalul|lul+|lmao+|wtf|omg|clip|clip it|insane|crazy|holy|krass|wahnsinn|sheesh|lets ?go+|monka\w*|ez+|no ?way)\b/i;
+
+/* ---------- Hype-Berechnung (ohne Seiteneffekte) ---------- */
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const BUCKET = 10000, KEEP = 600000;
+
+const Hype = {
+  newChannel(login, now) {
+    return { login, name: login, id: null, viewers: 0, title: '', game: '', startedAt: now, thumb: '',
+             since: now, buckets: [], viewerHist: [], events: [], clips: 0, recentClips: [], score: null, comp: null };
+  },
+  resetChat(ch, now) { ch.buckets = []; ch.events = []; ch.reacts = []; ch.moods = []; ch.since = now; },
+
+  addMessage(ch, user, text, now) {
+    if (BOTS.has(user)) return;
+    const t = Math.floor(now / BUCKET) * BUCKET;
+    let b = ch.buckets[ch.buckets.length - 1];
+    if (!b || b.t !== t) {
+      b = { t, n: 0, r: 0, users: new Map() };
+      ch.buckets.push(b);
+      while (ch.buckets.length && ch.buckets[0].t < now - KEEP) ch.buckets.shift();
+    }
+    // Pro Person zählen höchstens 2 Nachrichten je 10 Sekunden, damit Spam den Wert nicht treibt.
+    const seen = b.users.get(user) || 0;
+    b.users.set(user, seen + 1);
+    if (seen >= 2) return;
+    b.n++;
+    if (HYPE_WORDS.test(text) || (text.length >= 5 && text === text.toUpperCase() && /[A-ZÄÖÜ]/.test(text))) b.r++;
+  },
+
+  addEvent(ch, kind, value, now) {
+    ch.events.push({ t: now, kind, value });
+    ch.events = ch.events.filter(e => e.t >= now - 300000);
+  },
+
+  addViewers(ch, viewers, now) {
+    ch.viewers = viewers;
+    ch.viewerHist.push({ t: now, v: viewers });
+    ch.viewerHist = ch.viewerHist.filter(h => h.t >= now - 900000);
+  },
+
+  components(ch, now) {
+    const c = { surge: 0, react: 0, engage: 0, growth: 0, clips: 0, ratio: null, growthPct: 0, rate: 0, measuring: true, raid: false };
+    const observed = now - ch.since;
+    const sum = (from, to) => {
+      let n = 0, r = 0;
+      for (const b of ch.buckets) if (b.t >= from && b.t < to) { n += b.n; r += b.r; }
+      return { n, r };
+    };
+
+    if (observed >= 20000) {
+      const span = Math.min(60000, observed);
+      const recent = sum(now - span, now + 1);
+      c.rate = recent.n / (span / 60000);
+      c.engage = clamp01((c.rate / Math.max(ch.viewers, 20) * 100) / 25);
+
+      let score = recent.n >= 5 ? clamp01((recent.r / recent.n) / 0.4) : 0;
+      for (const e of ch.events) {
+        if (e.t < now - 180000) continue;
+        if (e.kind === 'raid') { score += 0.5; c.raid = true; }
+        else if (e.kind === 'gift') score += 0.25;
+        else score += 0.05;
+      }
+      c.react = clamp01(score);
+
+      if (observed >= 120000) {
+        c.measuring = false;
+        const olderSpan = Math.min(540000, observed - 60000);
+        const base = sum(now - 60000 - olderSpan, now - 60000).n / (olderSpan / 60000);
+        // Die Konstante 5 verhindert, dass aus 1 auf 3 Nachrichten pro Minute ein Riesensprung wird.
+        c.ratio = (c.rate + 5) / (base + 5);
+        c.surge = clamp01(Math.log2(c.ratio) / 2); // Faktor 4 = voller Wert
+      }
+    }
+
+    // Jeder frische Stream wächst anfangs von selbst. Darum zählen nur Zuschauerwerte,
+    // die nach der Startphase gemessen wurden, auch als Vergleichswert.
+    const earliest = Math.max(now - 600000, ch.startedAt + CFG.growthGraceMs);
+    const old = ch.viewerHist.find(h => h.t >= earliest);
+    if (old && now - old.t >= 180000) {
+      c.growthPct = (ch.viewers - old.v) / Math.max(old.v, 20) * 100;
+      c.growth = clamp01(c.growthPct / 25);
+    }
+
+    // Große Kanäle bekommen ohnehin mehr Clips, deshalb wird nach Zuschauerzahl abgeschwächt.
+    const adj = ch.clips / (1 + Math.sqrt(Math.max(ch.viewers, 0)) / 30);
+    c.clips = 1 - Math.exp(-adj / 1.5);
+    return c;
+  },
+
+  total(c) {
+    const w = CFG.weights;
+    return c.surge * w.surge + c.react * w.react + c.engage * w.engage + c.growth * w.growth + c.clips * w.clips;
+  },
+
+  update(ch, now) {
+    ch.comp = Hype.components(ch, now);
+    const raw = Hype.total(ch.comp);
+    ch.score = ch.score === null ? raw : ch.score + 0.4 * (raw - ch.score);
+    Hype.track(ch, now);
+  },
+
+  /* Merkt sich den Verlauf der letzten 10 Minuten und rechnet den Anstieg hoch. */
+  track(ch, now) {
+    ch.hist = (ch.hist || []).filter(h => h.t >= now - 600000);
+    ch.hist.push({ t: now, s: ch.score });
+    const old = ch.hist.find(h => h.t >= now - 40000);
+    const dt = old ? now - old.t : 0;
+    ch.slope = dt >= 15000 ? (ch.score - old.s) / dt : 0; // Punkte pro Millisekunde
+    ch.gain = Math.max(0, Math.min(CFG.predictMax, ch.slope * CFG.predictAheadMs));
+  },
+
+  trendText(ch) {
+    const perMin = (ch.slope || 0) * 60000;
+    return perMin >= 6 ? 'steigt' : perMin <= -6 ? 'fällt' : 'stabil';
+  },
+
+  reasons(ch) {
+    const c = ch.comp;
+    if (!c) return [];
+    const w = CFG.weights, de = x => x.toLocaleString('de', { maximumFractionDigits: 1 });
+    const out = [];
+    if (c.ratio !== null && c.ratio >= 1.3) out.push([c.surge * w.surge, `Chat ×${de(c.ratio)}`]);
+    if (c.raid) out.push([w.react, 'Raid']);
+    else if (c.react >= 0.5) out.push([c.react * w.react, 'starke Reaktionen']);
+    if (c.growthPct >= 3) out.push([c.growth * w.growth, `+${Math.round(c.growthPct)} % Zuschauer`]);
+    if (ch.clips > 0) out.push([c.clips * w.clips, ch.clips === 1 ? '1 neuer Clip' : `${ch.clips} neue Clips`]);
+    if (ch.gain >= 5) out.push([ch.gain + 100, 'zieht gerade an']);
+    return out.sort((a, b) => b[0] - a[0]).slice(0, 3).map(x => x[1]);
+  },
+
+  /* Wählt die meistgesehenen Clips aus, mit Obergrenze pro Kanal für mehr Abwechslung. */
+  pickTopClips(clips, count, perChannel) {
+    const seen = new Map(), out = [];
+    for (const c of [...clips].sort((a, b) => b.view_count - a.view_count)) {
+      const n = seen.get(c.broadcaster_id) || 0;
+      if (n >= perChannel) continue;
+      seen.set(c.broadcaster_id, n + 1);
+      out.push(c);
+      if (out.length >= count) break;
+    }
+    return out;
+  },
+
+  /* Entscheidet, ob ein Wechsel vorgeschlagen wird. Gibt den Login zurück oder null. */
+  judge(S, now) {
+    const val = c => c.eff ?? c.score ?? 0; // Hype plus Vorhersage, Favorit und Gelerntes
+    const live = [...S.channels.values()];
+    const cur = S.current ? S.channels.get(S.current) : null;
+    const others = live.filter(c => c.login !== S.current && !c.hidden && !((S.snoozed.get(c.login) || 0) > now))
+                       .sort((a, b) => val(b) - val(a) || b.viewers - a.viewers);
+    const best = others[0];
+    if (!best) { S.lead = null; return null; }
+
+    // Der laufende Stream ist zu Ende: sofort den besten Ersatz vorschlagen.
+    if (S.current && !cur) return S.prompt && others.some(c => c.login === S.prompt) ? S.prompt : best.login;
+
+    const lead = val(best) - (cur ? val(cur) : 0);
+    if (S.prompt) {
+      const p = S.channels.get(S.prompt);
+      const stillAhead = p && !p.hidden && !((S.snoozed.get(S.prompt) || 0) > now) && val(p) - (cur ? val(cur) : 0) >= CFG.margin / 2;
+      return stillAhead ? S.prompt : null;
+    }
+    if (lead >= CFG.margin && val(best) >= CFG.minScore) {
+      S.lead = S.lead && S.lead.login === best.login ? { login: best.login, ticks: S.lead.ticks + 1 } : { login: best.login, ticks: 1 };
+    } else {
+      S.lead = null;
+    }
+    if (S.lead && S.lead.ticks >= CFG.leadTicks && now - S.lastPromptAt >= CFG.cooldownMs) return best.login;
+    return null;
+  },
+};
+
+/* ---------- Andere Streamer im Chat erkennen ---------- */
+const STOP = new Set(('aber alle alles also auch auf dann dass denn dein deine dem den der des dich die dies diese dir doch dort durch eine einem einen einer eines euch fuer für gerade gibt ganz geil gleich gut habe haben halt hast hallo hat heute hier ihm ihn ihr immer jetzt kann kein keine kommt lass leute lieber mach machen mal man mehr mein meine mich mir mit muss nach nein nicht noch nur oder ohne schon sehr sein seine sich sie sind spiel stream streamer und uns unser viel voll von vor warum was weil wenn wer wie wieder wir wird wirklich wohl zum zur toll krass lustig witzig schlecht richtig echt mega bruder digga alter junge jungs haha hahaha hehe nice cool wild funny hard easy crazy insane huge real free trash based true ' +
+  'about after again all also always and any are back been before being best better but can chat come could did does doing done down each even ever every feel first from game games get getting give going gonna good got great guys had has have hello here him his how into its just know last like live look looks lets love made make man many maybe mean more most much need never new nice not now off okay old one only other our out over people play played playing please pretty really right said same say see she should show since some something still stop stream streamer streams such sure take than thank thanks that the their them then there these they thing think this those though time too two very wait want was watch way well were what when where which while who why will win with without would yeah yes you your').split(' '));
+const NOT_CHANNELS = new Set(['videos','directory','clips','clip','settings','subscriptions','moderator','downloads','jobs','turbo','prime','popout','drops','wallet','inventory','search','following','friends']);
+
+const Mentions = {
+  seen: new Map(), authors: new Map(), checked: new Map(), busy: false,
+  clear() { this.seen.clear(); this.authors.clear(); this.checked.clear(); },
+
+  note(login, user, strong, now) {
+    let e = this.seen.get(login);
+    if (!e) { e = { people: new Map(), strong: new Map() }; this.seen.set(login, e); }
+    e.people.set(user, now);
+    if (strong) e.strong.set(user, now);
+  },
+
+  add(user, text, tags, now, context) {
+    if (BOTS.has(user)) return;
+    this.authors.set(user, now);
+    let t = text;
+    if (tags.emotes) {
+      // Twitch markiert Emotes im Text. Die sind nie als Streamername gemeint.
+      const chars = Array.from(t);
+      for (const part of tags.emotes.split('/')) {
+        for (const range of (part.split(':')[1] || '').split(',')) {
+          const [a, b] = range.split('-').map(Number);
+          if (b >= a) for (let i = a; i <= b && i < chars.length; i++) chars[i] = ' ';
+        }
+      }
+      t = chars.join('');
+    }
+    const parent = (tags['reply-parent-user-login'] || '').toLowerCase();
+    const strongHit = (m, name) => {
+      const login = CFG.aliases[name.toLowerCase()] || name.toLowerCase();
+      if (login !== user && login !== parent && !NOT_CHANNELS.has(login)) this.note(login, user, true, now);
+      return ' ';
+    };
+    t = t.replace(/(?:https?:\/\/)?(?:www\.|m\.)?twitch\.tv\/([a-z0-9_]{4,25})\S*/gi, strongHit);
+    t = t.replace(/@([a-z0-9_]{4,25})\b/gi, strongHit);
+    for (const w of t.match(/[A-Za-z0-9_]{4,25}/g) || []) {
+      const login = w.toLowerCase();
+      const alias = CFG.aliases[login];
+      if (alias) { if (alias !== user) this.note(alias, user, true, now); continue; }
+      if (w === w.toUpperCase()) continue; // Großbuchstaben und reine Zahlen sind meist Emotes oder Rufe
+      if (login === user || STOP.has(login) || context.has(login)) continue;
+      this.note(login, user, false, now);
+    }
+  },
+
+  prune(now) {
+    const min = now - CFG.mentionWindowMs;
+    for (const [u, t] of this.authors) if (t < min) this.authors.delete(u);
+    for (const [login, e] of this.seen) {
+      for (const [u, t] of e.people) if (t < min) e.people.delete(u);
+      for (const [u, t] of e.strong) if (t < min) e.strong.delete(u);
+      if (!e.people.size) this.seen.delete(login);
+    }
+  },
+
+  /* Namen, die oft genug von verschiedenen Personen genannt wurden, meistgenannte zuerst. */
+  candidates(now, known) {
+    this.prune(now);
+    const wordNeed = Math.max(CFG.mentionWord, Math.ceil(this.authors.size * 0.03));
+    const out = [];
+    for (const [login, e] of this.seen) {
+      const strong = e.strong.size >= CFG.mentionStrong || (known.has(login) && e.people.size >= CFG.mentionStrong);
+      const word = e.people.size >= wordNeed && !this.authors.has(login);
+      if (strong || word) out.push({ login, count: e.people.size, strong });
+    }
+    return out.sort((a, b) => b.count - a.count);
+  },
+};
+
+/* ---------- Speicher ---------- */
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+  json(k, fallback) { try { return JSON.parse(localStorage.getItem(k)) ?? fallback; } catch { return fallback; } },
+  setJson(k, v) { this.set(k, JSON.stringify(v)); },
+};
+
+/* ---------- Zustand ---------- */
+const $ = id => document.getElementById(id);
+const S = {
+  clientId: store.get('clientId') || '',
+  token: store.get('token') || '',
+  userId: null, login: null,
+  channels: new Map(), current: null, currentName: '',
+  prompt: null, lead: null, lastPromptAt: 0, snoozed: new Map(),
+  settings: { predict: true, events: true, rain: true, showSound: true, quietOn: false, from: '23:00', to: '08:00', mode: 'none', ...store.json('settings', {}) },
+  hiddenGames: new Set(store.json('hiddenGames', [])), favorites: new Set(store.json('favorites', [])),
+  prefs: store.json('prefs', { ch: {}, game: {} }), toasts: [], multi: null, show: null, dockClosed: store.get('dockClosed') === '1',
+  clipCache: new Map(), followedIds: [], followedAt: 0, topBusy: false, playedAt: 0, miniOn: store.get('mini') !== '0', mini: null, extra: new Set(), blocked: new Map(), knownLogins: new Set(), auto: store.get('auto') === '1', clip: null, clipAuto: false, topClips: null, firstLoadDone: false, notify: store.get('notify') === '1', apiError: '',
+};
+const SCOPES = ['user:read:follows', 'chat:read'];
+const REDIRECT = location.origin + location.pathname.replace(/index\.html$/, '');
+const isTouch = matchMedia('(pointer: coarse)').matches;
+// In der Android-App darf Video auch ohne Antippen starten, deshalb gelten dort die automatischen Abläufe.
+const isApp = navigator.userAgent.includes('SmartstreamApp');
+const waitsForTap = isTouch && !isApp;
+const isNarrow = () => matchMedia('(max-width: 820px)').matches;
+
+/* ---------- Anmeldung ---------- */
+function showSetup(msg) {
+  $('app').hidden = true;
+  $('setup').hidden = false;
+  $('redirect').textContent = REDIRECT;
+  $('clientId').value = S.clientId;
+  const known = !!S.clientId;
+  $('firstRun').hidden = known;
+  $('changeId').hidden = !known;
+  $('setupErr').hidden = !msg;
+  $('setupErr').textContent = msg || '';
+}
+
+function login() {
+  if (!$('firstRun').hidden) {
+    const id = $('clientId').value.trim();
+    if (!/^[a-z0-9]{10,64}$/i.test(id)) { showSetup('Das sieht nicht nach einer Client-ID aus. Bitte nochmal kopieren.'); $('firstRun').hidden = false; $('changeId').hidden = true; return; }
+    S.clientId = id;
+    store.set('clientId', id);
+  }
+  const state = crypto.randomUUID();
+  try { sessionStorage.setItem('oauthState', state); } catch {}
+  const q = new URLSearchParams({ client_id: S.clientId, redirect_uri: REDIRECT, response_type: 'token', scope: SCOPES.join(' '), state });
+  location.href = 'https://id.twitch.tv/oauth2/authorize?' + q;
+}
+
+function readRedirect() {
+  const query = new URLSearchParams(location.search);
+  const hash = new URLSearchParams(location.hash.slice(1));
+  let msg = '';
+  if (query.get('error')) msg = 'Twitch hat die Anmeldung abgelehnt: ' + (query.get('error_description') || query.get('error'));
+  if (hash.get('access_token')) {
+    let expected = null;
+    try { expected = sessionStorage.getItem('oauthState'); sessionStorage.removeItem('oauthState'); } catch {}
+    if (expected && expected === hash.get('state')) { S.token = hash.get('access_token'); store.set('token', S.token); }
+    else msg = 'Die Anmeldung konnte nicht bestätigt werden. Bitte nochmal versuchen.';
+  }
+  if (location.search || location.hash) history.replaceState(null, '', location.pathname);
+  return msg;
+}
+
+async function validate() {
+  const r = await fetch('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + S.token } });
+  if (r.status === 401) return false;
+  if (!r.ok) throw new Error('validate ' + r.status);
+  const d = await r.json();
+  if (!SCOPES.every(s => (d.scopes || []).includes(s))) return false;
+  S.userId = d.user_id; S.login = d.login;
+  return true;
+}
+
+function loggedOut(msg) {
+  stopAll();
+  S.token = ''; store.del('token');
+  showSetup(msg);
+}
+
+/* ---------- Twitch-API ---------- */
+class AuthError extends Error {}
+async function api(path, params) {
+  const r = await fetch('https://api.twitch.tv/helix/' + path + '?' + new URLSearchParams(params), {
+    headers: { Authorization: 'Bearer ' + S.token, 'Client-Id': S.clientId },
+  });
+  if (r.status === 401) throw new AuthError();
+  if (!r.ok) throw new Error('Twitch antwortet mit Status ' + r.status);
+  return r.json();
+}
+
+function upsertStream(s, now) {
+  const login = s.user_login.toLowerCase();
+  let ch = S.channels.get(login);
+  if (!ch) { ch = Hype.newChannel(login, now); S.channels.set(login, ch); Chat.join(login); }
+  ch.id = s.user_id; ch.name = s.user_name || login; ch.title = s.title || ''; ch.game = s.game_name || '';
+  ch.startedAt = Date.parse(s.started_at) || now;
+  ch.thumb = (s.thumbnail_url || '').replace('{width}', '128').replace('{height}', '72');
+  Emotes.loadChannel(ch);
+  Hype.addViewers(ch, s.viewer_count || 0, now);
+  return ch;
+}
+
+async function refreshStreams() {
+  const now = Date.now(), seen = new Set();
+  const rows = [];
+  let after = '';
+  do {
+    const params = { user_id: S.userId, first: 100 };
+    if (after) params.after = after;
+    const d = await api('streams/followed', params);
+    rows.push(...d.data);
+    after = d.pagination && d.pagination.cursor || '';
+  } while (after);
+
+  // Dazu kommen: ein groß geschalteter Kanal, dem du nicht folgst, und der Mini-Stream.
+  S.extra = new Set([...S.extra].filter(l => l === S.current));
+  const lookup = new Set(S.extra);
+  if (S.mini) lookup.add(S.mini.login);
+  let lookedUp = [];
+  if (lookup.size) lookedUp = (await api('streams', [...lookup].map(l => ['user_login', l]))).data;
+  const lookedLogins = new Set(lookedUp.map(s => s.user_login.toLowerCase()));
+  const rowLogins = new Set(rows.map(s => s.user_login.toLowerCase()));
+  rows.push(...lookedUp.filter(s => S.extra.has(s.user_login.toLowerCase()) && !rowLogins.has(s.user_login.toLowerCase())));
+  if (S.mini && !lookedLogins.has(S.mini.login)) closeMini(false);
+
+  for (const s of rows) {
+    seen.add(s.user_login.toLowerCase());
+    upsertStream(s, now);
+  }
+  for (const login of [...S.channels.keys()]) {
+    if (!seen.has(login)) { S.channels.delete(login); Chat.part(login); }
+  }
+}
+
+async function fetchChannelClips(ch) {
+  const since = new Date(Date.now() - 900000).toISOString();
+  const until = new Date().toISOString();
+  const d = await api('clips', { broadcaster_id: ch.id, started_at: since, ended_at: until, first: 20 });
+  ch.clips = d.data.length;
+  ch.recentClips = d.data;
+  Show.collect(d.data, Date.now());
+}
+
+/* Der meistgesehene Clip der letzten 15 Minuten zeigt am ehesten, warum gerade Hype ist. */
+function hypeClip(ch) {
+  return ch.recentClips.reduce((best, c) => !best || (c.view_count || 0) > (best.view_count || 0) ? c : best, null);
+}
+
+async function refreshClips() {
+  const queue = [...S.channels.values()].sort((a, b) => b.viewers - a.viewers).slice(0, CFG.clipChannels);
+  const worker = async () => {
+    for (let ch; (ch = queue.shift());) {
+      await fetchChannelClips(ch);
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+}
+
+async function followedChannelIds() {
+  const ids = new Set();
+  for (const ch of S.channels.values()) if (ch.id) ids.add(ch.id); // Live-Kanäle haben immer Vorrang
+  let after = '';
+  do {
+    const params = { user_id: S.userId, first: 100 };
+    if (after) params.after = after;
+    const d = await api('channels/followed', params);
+    for (const c of d.data) { ids.add(c.broadcaster_id); if (c.broadcaster_login) S.knownLogins.add(c.broadcaster_login.toLowerCase()); }
+    after = d.pagination && d.pagination.cursor || '';
+  } while (after && ids.size < CFG.topClipChannels);
+  return [...ids].slice(0, CFG.topClipChannels);
+}
+
+async function refreshTopClips() {
+  if (S.topBusy) return; // der erste Durchlauf kann bei vielen Kanälen länger dauern
+  S.topBusy = true;
+  try {
+    const now = Date.now();
+    if (now - S.followedAt >= CFG.topClipsOfflineMs) { S.followedIds = await followedChannelIds(); S.followedAt = now; }
+    const liveIds = new Set([...S.channels.values()].map(c => c.id).filter(Boolean));
+    const due = [...new Set([...liveIds, ...S.followedIds])].filter(id => {
+      const c = S.clipCache.get(id);
+      return !c || liveIds.has(id) || now - c.at >= CFG.topClipsOfflineMs;
+    });
+    const since = new Date(now - CFG.topClipHours * 3600000).toISOString();
+    const until = new Date(now).toISOString();
+    let failed = 0;
+    const worker = async () => {
+      for (let id; (id = due.shift());) {
+        try {
+          const d = await api('clips', { broadcaster_id: id, started_at: since, ended_at: until, first: 5 });
+          S.clipCache.set(id, { at: now, clips: d.data });
+        } catch (e) {
+          if (e instanceof AuthError) throw e;
+          failed++; // Ein einzelner Kanal darf das Panel nicht leer machen.
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    if (!S.token) return;
+    const min = now - CFG.topClipHours * 3600000;
+    const pool = [...S.clipCache.values()].flatMap(c => c.clips).filter(c => Date.parse(c.created_at) >= min);
+    if (failed && !pool.length) throw new Error('Clips nicht verfügbar');
+    S.topClips = Hype.pickTopClips(pool, CFG.topClipCount, CFG.topClipPerChannel);
+    Show.collect(pool, now);
+    renderClips();
+  } finally { S.topBusy = false; }
+}
+
+/* ---------- 7TV-Emotes und aktuelle Reaktionen ---------- */
+const Emotes = {
+  global: new Map(), globalLoaded: false,
+  toMap(list) {
+    const m = new Map();
+    for (const e of list || []) {
+      const host = e.data && e.data.host && e.data.host.url || `//cdn.7tv.app/emote/${e.id}`;
+      m.set(e.name, { key: '7tv:' + e.id, name: e.name, url: `https:${host}/1x.webp` });
+    }
+    return m;
+  },
+  async get(path) {
+    const r = await fetch('https://7tv.io/v3/' + path);
+    if (!r.ok) throw new Error('7tv ' + r.status);
+    return r.json();
+  },
+  async loadGlobal() {
+    if (this.globalLoaded) return;
+    this.globalLoaded = true;
+    try { this.global = this.toMap((await this.get('emote-sets/global')).emotes); } catch { this.globalLoaded = false; }
+  },
+  /* Lädt die 7TV-Emotes eines Kanals. Viele Kanäle haben keine, das ist kein Fehler. */
+  async loadChannel(ch) {
+    this.loadGlobal();
+    if (!ch.id || ch.emotesAt > Date.now() - 3600000) return;
+    ch.emotesAt = Date.now();
+    try {
+      const u = await this.get('users/twitch/' + encodeURIComponent(ch.id));
+      let list = u.emote_set && u.emote_set.emotes;
+      if (!list && u.emote_set_id) list = (await this.get('emote-sets/' + encodeURIComponent(u.emote_set_id))).emotes;
+      ch.emoteMap = this.toMap(list);
+    } catch { ch.emoteMap = ch.emoteMap || new Map(); }
+  },
+  /* Zählt je Nachricht jedes Emote einmal, pro Person höchstens einmal im Zeitraum. */
+  count(ch, user, text, tags, now) {
+    if (BOTS.has(user)) return;
+    const seen = new Map();
+    if (tags.emotes) {
+      const chars = Array.from(text);
+      for (const part of tags.emotes.split('/')) {
+        const [id, ranges] = part.split(':');
+        if (!id || !ranges) continue;
+        const [a, b] = ranges.split(',')[0].split('-').map(Number);
+        seen.set('tw:' + id, { key: 'tw:' + id, name: chars.slice(a, b + 1).join(''), url: `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/default/dark/1.0` });
+      }
+    }
+    for (const w of text.split(/\s+/)) {
+      const e = (ch.emoteMap && ch.emoteMap.get(w)) || this.global.get(w);
+      if (e) seen.set(e.key, e);
+    }
+    if (!seen.size) return;
+    ch.reacts = (ch.reacts || []).filter(r => r.t >= now - CFG.reactionWindowMs);
+    for (const e of seen.values()) {
+      if (!ch.reacts.some(r => r.key === e.key && r.user === user)) ch.reacts.push({ t: now, key: e.key, user, e });
+    }
+  },
+  top(ch, now) {
+    const counts = new Map();
+    for (const r of ch.reacts || []) {
+      if (r.t < now - CFG.reactionWindowMs) continue;
+      const c = counts.get(r.key) || { e: r.e, n: 0 };
+      c.n++;
+      counts.set(r.key, c);
+    }
+    return [...counts.values()].filter(c => c.n >= CFG.reactionMin).sort((a, b) => b.n - a.n).slice(0, CFG.reactionShown);
+  },
+  /* Baut Bild-Elemente. Die Namen stammen aus fremden Daten und landen nur als Text-Eigenschaft im Bild. */
+  nodes(ch, now) {
+    return this.top(ch, now).flatMap(({ e, n }) => {
+      const img = document.createElement('img');
+      img.className = 'emote'; img.src = e.url; img.alt = e.name; img.title = `${e.name}: ${n} Leute`; img.loading = 'lazy';
+      img.onerror = () => img.remove();
+      const count = document.createElement('span');
+      count.className = 'count'; count.textContent = n;
+      return [img, count];
+    });
+  },
+};
+
+/* ---------- Chat ---------- */
+const Chat = {
+  ws: null, wanted: new Set(), queue: [], timer: null, retry: 0, closing: false, connected: false,
+  start() {
+    this.closing = false;
+    clearTimeout(this.retryTimer);
+    const ws = this.ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+    ws.onopen = () => {
+      ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+      ws.send('PASS oauth:' + S.token);
+      ws.send('NICK ' + S.login);
+    };
+    ws.onmessage = e => { for (const line of String(e.data).split('\r\n')) if (line) this.line(line); };
+    ws.onclose = () => {
+      this.connected = false;
+      if (this.closing || this.ws !== ws) return;
+      clearInterval(this.timer); this.timer = null;
+      this.retryTimer = setTimeout(() => { if (!this.closing) this.start(); }, Math.min(30000, 1000 * 2 ** this.retry++));
+    };
+  },
+  stop() {
+    this.closing = true; this.connected = false;
+    clearTimeout(this.retryTimer);
+    clearInterval(this.timer); this.timer = null;
+    this.wanted.clear(); this.queue = [];
+    if (this.ws) this.ws.close();
+  },
+  join(login) { this.wanted.add(login); this.queue.push(login); this.pump(); },
+  part(login) {
+    this.wanted.delete(login);
+    this.queue = this.queue.filter(x => x !== login);
+    if (this.connected) this.ws.send('PART #' + login);
+  },
+  pump() {
+    if (this.timer || !this.connected) return;
+    this.timer = setInterval(() => {
+      const login = this.queue.shift();
+      if (!login) { clearInterval(this.timer); this.timer = null; return; }
+      if (this.wanted.has(login) && this.ws.readyState === 1) this.ws.send('JOIN #' + login);
+    }, CFG.joinGapMs);
+  },
+  line(raw) {
+    let rest = raw, tags = {};
+    if (rest[0] === '@') {
+      const i = rest.indexOf(' ');
+      for (const kv of rest.slice(1, i).split(';')) { const j = kv.indexOf('='); tags[kv.slice(0, j)] = kv.slice(j + 1); }
+      rest = rest.slice(i + 1);
+    }
+    if (rest.startsWith('PING')) { this.ws.send('PONG' + rest.slice(4)); return; }
+    let prefix = '';
+    if (rest[0] === ':') { const i = rest.indexOf(' '); prefix = rest.slice(1, i); rest = rest.slice(i + 1); }
+    const i = rest.indexOf(' :');
+    const head = (i >= 0 ? rest.slice(0, i) : rest).split(' ');
+    const trailing = i >= 0 ? rest.slice(i + 2) : '';
+    const cmd = head[0], now = Date.now();
+
+    if (cmd === '001') {
+      this.connected = true; this.retry = 0;
+      for (const ch of S.channels.values()) Hype.resetChat(ch, now); // Lücke im Chat ist kein echter Abfall
+      this.queue = [...this.wanted];
+      this.pump();
+    } else if (cmd === 'RECONNECT') {
+      this.ws.close();
+    } else if (cmd === 'NOTICE' && /authentication failed|improperly formatted auth/i.test(trailing)) {
+      loggedOut('Deine Twitch-Anmeldung ist abgelaufen. Bitte neu anmelden.');
+    } else if (cmd === 'PRIVMSG') {
+      const ch = S.channels.get((head[1] || '').slice(1));
+      if (ch) {
+        const user = prefix.split('!')[0];
+        Hype.addMessage(ch, user, trailing, now);
+        Emotes.count(ch, user, trailing, tags, now);
+        Mood.add(ch, trailing, now);
+        Bets.add(ch, user, trailing, now);
+        Bingo.add(ch, user, trailing, now);
+        if (+tags.bits > 0) Events.note(ch, 'bits', +tags.bits, now);
+        if (ch.login === S.current && S.miniOn) Mentions.add(user, trailing, tags, now, contextWords(ch));
+      }
+    } else if (cmd === 'USERNOTICE') {
+      const ch = S.channels.get((head[1] || '').slice(1));
+      if (!ch) return;
+      const id = tags['msg-id'];
+      if (id === 'raid') { Hype.addEvent(ch, 'raid', +tags['msg-param-viewerCount'] || 0, now); Events.note(ch, 'raid', +tags['msg-param-viewerCount'] || 0, now); }
+      else if (id === 'submysterygift') { Hype.addEvent(ch, 'gift', +tags['msg-param-mass-gift-count'] || 0, now); Events.note(ch, 'gift', +tags['msg-param-mass-gift-count'] || 0, now); }
+      else if (id === 'sub' || id === 'resub' || id === 'subgift') { Hype.addEvent(ch, 'sub', 1, now); Events.note(ch, 'sub', 1, now); }
+    }
+  },
+};
+
+/* ---------- Geschmack, Favoriten, Ruhezeiten ---------- */
+const Prefs = {
+  vote(ch, delta) {
+    if (!ch) return;
+    const bump = (group, key) => { if (key) { const e = S.prefs[group][key] || { a: 0, r: 0 }; e[delta > 0 ? 'a' : 'r']++; S.prefs[group][key] = e; } };
+    bump('ch', ch.login);
+    bump('game', ch.game);
+    store.setJson('prefs', S.prefs);
+  },
+  bonus(ch) {
+    const part = (e, step) => e ? (e.a - e.r) * step : 0;
+    const learned = part(S.prefs.ch[ch.login], CFG.learnStep) + part(S.prefs.game[ch.game], CFG.learnStep / 2);
+    return Math.max(-CFG.learnMax, Math.min(CFG.learnMax, learned)) + (S.favorites.has(ch.login) ? CFG.favBonus : 0);
+  },
+  count() { return Object.values(S.prefs.ch).reduce((n, e) => n + e.a + e.r, 0); },
+  /* Rechnet aus, wie stark ein Kanal für Vorschläge zählt. Der angezeigte Hype bleibt unverändert. */
+  apply(ch) {
+    ch.hidden = !!ch.game && S.hiddenGames.has(ch.game);
+    ch.eff = (ch.score || 0) + (S.settings.predict ? ch.gain || 0 : 0) + Prefs.bonus(ch);
+  },
+};
+
+function quietActive(d = new Date()) {
+  if (!S.settings.quietOn) return false;
+  const min = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+  const now = d.getHours() * 60 + d.getMinutes(), a = min(S.settings.from), b = min(S.settings.to);
+  return a <= b ? now >= a && now < b : now >= a || now < b;
+}
+
+/* ---------- Hinweise ---------- */
+const Toast = {
+  add(text, login, now = Date.now()) {
+    S.toasts = [{ text, login, until: now + CFG.toastMs, id: now + Math.random() }, ...S.toasts].slice(0, 3);
+  },
+  purge(now) { S.toasts = S.toasts.filter(t => t.until > now); },
+  render() {
+    $('toasts').replaceChildren(...S.toasts.map(t => {
+      const b = document.createElement('button');
+      b.textContent = t.text;
+      b.onclick = () => {
+        S.toasts = S.toasts.filter(x => x !== t);
+        if (t.login && S.channels.has(t.login)) play(t.login); else render();
+      };
+      return b;
+    }));
+  },
+};
+
+/* ---------- Raids, Sub-Wellen, Bits ---------- */
+const Events = {
+  note(ch, kind, value, now) {
+    const de = n => n.toLocaleString('de');
+    const within = (key, v) => {
+      ch[key] = (ch[key] || []).filter(e => e.t >= now - 60000);
+      ch[key].push({ t: now, v });
+      return ch[key].reduce((n, e) => n + e.v, 0);
+    };
+    if (kind === 'raid' && value >= CFG.eventRaid) this.fire(ch, kind, `Raid mit ${de(value)} Leuten bei ${ch.name}`, now);
+    else if (kind === 'gift' && value >= CFG.eventGift) this.fire(ch, kind, `${de(value)} Geschenk-Subs bei ${ch.name}`, now);
+    else if (kind === 'sub') { const n = within('subWave', 1); if (n >= CFG.eventSubs) this.fire(ch, kind, `Sub-Welle bei ${ch.name}: ${de(n)} Subs in einer Minute`, now); }
+    else if (kind === 'bits') { const n = within('bitWave', value); if (n >= CFG.eventBits) this.fire(ch, kind, `${de(n)} Bits bei ${ch.name} in einer Minute`, now); }
+  },
+  fire(ch, kind, text, now) {
+    ch.fired = ch.fired || {};
+    if (ch.fired[kind] > now - CFG.eventRepeatMs) return;
+    ch.fired[kind] = now;
+    if (S.settings.events) { Toast.add(text, ch.login, now); if (S.firstLoadDone) Toast.render(); }
+  },
+};
+
+/* ---------- Stimmung im Chat ---------- */
+const MOODS = [
+  ['lacht', /\b(kekw|omegalul|lul+|lol+|lmao+|rofl|haha+|hehe+|xd+|pepelaugh|icant)\b/i],
+  ['ist schockiert', /\b(wtf|omg|monka\w*|no ?way|holy|pausechamp|ayo|wie bitte)\b/i],
+  ['feiert', /\b(pog\w*|gg+|lets ?go+|ez+|clap|sheesh|krass|goat|ehre|hype\w*|peepoclap|catjam)\b/i],
+  ['leidet', /\b(rip|sadge|f|pepehands|biblethump|oof|schade|no{3,})\b/i],
+];
+const Mood = {
+  add(ch, text, now) {
+    const list = ch.moods = ch.moods || [];
+    const hit = MOODS.find(m => m[1].test(text));
+    list.push({ t: now, m: hit ? hit[0] : null });
+    while (list.length && list[0].t < now - 60000) list.shift();
+  },
+  get(ch, now) {
+    const counts = new Map();
+    let total = 0;
+    for (const e of ch.moods || []) {
+      if (e.t < now - 60000) continue;
+      total++;
+      if (e.m) counts.set(e.m, (counts.get(e.m) || 0) + 1);
+    }
+    const top = [...counts].sort((a, b) => b[1] - a[1])[0];
+    return top && top[1] >= CFG.moodMin && top[1] / total >= CFG.moodShare ? top[0] : null;
+  },
+};
+const reasonsOf = (ch, now = Date.now()) => {
+  const mood = Mood.get(ch, now);
+  return [...(mood ? ['Chat ' + mood] : []), ...Hype.reasons(ch)];
+};
+
+/* ---------- Emote-Regen ---------- */
+const Rain = {
+  last: new Map(),
+  check(ch, now) {
+    if (!S.settings.rain || !ch || document.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const top = Emotes.top(ch, now)[0];
+    if (!top || top.n < CFG.rainMin || this.last.get(top.e.key) > now - CFG.rainRepeatMs) return;
+    this.last.set(top.e.key, now);
+    const box = $('rain');
+    for (let i = 0; i < 6; i++) {
+      const img = document.createElement('img');
+      img.src = top.e.url; img.alt = '';
+      img.style.top = 4 + (i * 11) % 28 + 'px';
+      img.style.animationDelay = i * 0.45 + 's';
+      img.onanimationend = img.onerror = () => img.remove();
+      box.append(img);
+    }
+  },
+};
+
+/* ---------- Live-Wetten um Punkte, ohne echtes Geld ---------- */
+const NOT_SIDE = new Set(('den dem das ihn wen einen einem eine einer ein alle jeden jede niemanden mich dich euch bot bots team teams runde match win lose ihr wir ich sie ist war wäre wird spielt spielen zockt kämpft kommt geht tritt gewinnt verliert hat oder und aber nicht noch nur auch wie mal dann jetzt heute morgen halt nein lol lul kekw rematch wer was warum wieso weil wenn dass the him her them you who').split(' '));
+const WIN_WORDS = new Set('gewinnt gewonnen gewinner gewann sieg siegt sieger won wins winner win dub'.split(' '));
+const LOSE_WORDS = new Set('verliert verloren verlierer verlor lost loses loser raus'.split(' '));
+const GUESS_WORDS = new Set('wer wenn falls wird werden bestimmt safe sicher tipp tippe denke glaube wette vielleicht will if who will would hoffe hoffentlich'.split(' '));
+const NAME = '[\\p{L}\\p{N}_]{3,25}';
+const RE_DUEL = new RegExp(`(?:1\\s*(?:v|vs|gegen|on)\\s*1|duell|match)\\s*(?:gegen|vs\\.?|against|mit|with)\\s+(${NAME})`, 'u');
+const RE_PAIR = new RegExp(`(${NAME})\\s+(?:vs\\.?|versus|gegen|against)\\s+(${NAME})`, 'u');
+const RE_ONE = new RegExp(`(?:^|\\s)(?:gegen|against|vs\\.?)\\s+(${NAME})`, 'u');
+
+/* Findet ganze Wörter und Wortgruppen, auch mit Umlauten. */
+const W = words => new RegExp(`(?<![\\p{L}\\p{N}_])(?:${words})(?![\\p{L}\\p{N}_])`, 'iu');
+/* Worauf sich im Chat wetten lässt: Woran man die Frage erkennt und woran das Ergebnis.
+   Die Nein-Wörter werden zuerst geprüft, damit „nicht geschafft“ kein Ja wird. */
+const BET_TYPES = [
+  { id: 'survive', ask: W('stirbt (?:er|sie|der|die)|(?:er|sie) stirbt|überlebt (?:er|sie|der|die|das)|(?:er|sie) überlebt|survives? (?:he|she)|(?:he|she) (?:dies|survives)'),
+    title: n => `Überlebt ${n} das?`, yes: W('überlebt|survived|lebt noch|alive'), no: W('tot|gestorben|gestorbn|dead|died|nicht überlebt') },
+  { id: 'make', ask: W('schafft (?:er|sie|das|es|der|die)|(?:er|sie) schafft|packt (?:er|sie)|(?:er|sie) packt|klappt das|clutcht? (?:er|sie)|makes? it|will he make'),
+    title: n => `Schafft ${n} das?`, yes: W('geschafft|gepackt|geklappt|clutched|made it'), no: W('nicht geschafft|nicht gepackt|nicht geklappt|gefailt|failed|fail|verkackt|versagt|gethrowt|throw') },
+  { id: 'win', ask: W('gewinnt (?:er|sie|das|der|die)|(?:er|sie) gewinnt|verliert (?:er|sie)|(?:er|sie) verliert|gewinnen (?:die|sie)|win or lose|wird das ein win'),
+    title: n => `Gewinnt ${n} das?`, yes: W('gewonnen|sieg|dub|hat gewonnen|won'), no: W('verloren|niederlage|lost|nicht gewonnen') },
+  { id: 'hit', ask: W('trifft (?:er|sie)|(?:er|sie) trifft|versenkt (?:er|sie)|macht (?:er|sie) (?:den|das tor)|hits? (?:he|she)'),
+    title: n => `Trifft ${n}?`, yes: W('getroffen|treffer|versenkt|hit|tor'), no: W('daneben|vorbei|verfehlt|missed|nicht getroffen') },
+  { id: 'ban', ask: W('(?:wird|kriegt|bekommt) (?:er|sie)(?: \\p{L}+){0,3} (?:gebannt|ban|timeout)|gebannt wird|get(?:s|ting)? banned'),
+    title: n => `Wird ${n} gebannt?`, yes: W('gebannt|banned|permaban'), no: W('kein ban|nicht gebannt|not banned') },
+];
+/* Allgemeine Fragen wie „kauft er das skin?“. Das Ergebnis erkennt nur ein einfaches Ja oder Nein. */
+const RE_OPEN_Q = /^([\p{L}]{4,})\s+(?:er|sie)\s.*\?\s*$/u;
+const NOT_OPEN_VERB = new Set('warum wieso weshalb weil wann kann will soll muss darf hört sieht spielt streamt redet ging kommt macht wird wäre würde hatte'.split(' '));
+const OPEN_YES = /^(?:ja+|yes+|jap|jup|jo+)[!.\s]*$/iu, OPEN_NO = /^(?:nein+|nope|nee+|no+)[!.\s]*$/iu;
+
+const Bets = {
+  // Punkte aus früheren Tipps zählen nicht mehr, nur noch die aus Wetten.
+  cur: store.json('bet', null), history: store.json('betHistory', []), points: 0,
+  duels: new Map(), blocked: new Map(), claims: { a: new Map(), b: new Map() }, stake: 25,
+  save() { store.setJson('bet', this.cur); store.setJson('betHistory', this.history.slice(-50)); store.setJson('betPoints', this.points); },
+  /* Erkennt eine Ja/Nein-Frage in einer Nachricht. */
+  parseQuestion(text, ch) {
+    const type = BET_TYPES.find(t => t.ask.test(text));
+    if (type) return { key: 'q:' + type.id, typeId: type.id, title: type.title(ch.name), need: CFG.betPeople };
+    const m = text.toLowerCase().match(RE_OPEN_Q);
+    if (m && !NOT_OPEN_VERB.has(m[1]) && !STOP.has(m[1]) && !NOT_SIDE.has(m[1])) {
+      const verb = m[1][0].toUpperCase() + m[1].slice(1);
+      return { key: 'q:open:' + m[1], typeId: 'open', title: `${verb} ${ch.name} das?`, need: CFG.betPeopleOpen };
+    }
+    return null;
+  },
+  keyOf(c) { return c.typeId ? c.qKey : [c.a, c.b].sort().join('|'); },
+  isName(w) { return !!w && !/^\d+$/.test(w) && !STOP.has(w) && !NOT_SIDE.has(w); },
+  isStreamer(w, ch) {
+    return w === 'streamer' || w === ch.login || w === ch.name.toLowerCase() || CFG.aliases[w] === ch.login || wordsMatch(w, ch.login);
+  },
+  /* Liest aus einer Nachricht ein Duell. „@“ steht für den laufenden Streamer. */
+  parse(text, ch) {
+    const t = text.toLowerCase().replace(/@/g, '');
+    let a = null, b = null, m;
+    if ((m = t.match(RE_DUEL))) { a = '@'; b = m[1]; }
+    else if ((m = t.match(RE_PAIR))) {
+      if (this.isName(m[1]) && this.isName(m[2])) { a = m[1]; b = m[2]; }
+      else if (this.isName(m[2])) { a = '@'; b = m[2]; }
+      else return null;
+    } else if ((m = t.match(RE_ONE))) { a = '@'; b = m[1]; }
+    else return null;
+    if (!this.isName(b)) return null;
+    if (a !== '@' && this.isStreamer(a, ch)) a = '@';
+    if (b !== '@' && this.isStreamer(b, ch)) { b = a; a = '@'; }
+    if (!this.isName(b) || a === b) return null;
+    return { a, b };
+  },
+  sameDuel(x, y) {
+    const same = (p, q) => p === q || (p !== '@' && q !== '@' && wordsMatch(p, q));
+    return (same(x.a, y.a) && same(x.b, y.b)) || (same(x.a, y.b) && same(x.b, y.a));
+  },
+  key(d) { return [d.a, d.b].sort().join('|'); },
+  /* Wird für jede Chat-Nachricht gerufen. */
+  add(ch, user, text, now) {
+    if (BOTS.has(user)) return;
+    if (this.cur && this.cur.state !== 'done' && this.cur.login === ch.login) this.listen(ch, user, text, now);
+    if (ch.login !== S.current || this.cur) return;
+    const d = this.parse(text, ch);
+    if (!d) {
+      const q = this.parseQuestion(text, ch);
+      if (!q) return;
+      let e = this.duels.get(q.key);
+      if (!e) { e = { ...q, people: new Map() }; this.duels.set(q.key, e); }
+      e.people.set(user, now);
+      for (const [u, t] of e.people) if (t < now - CFG.betWindowMs) e.people.delete(u);
+      if (e.people.size >= e.need && !(this.blocked.get(q.key) > now)) this.openQuestion(ch, e, now);
+      return;
+    }
+    let e = [...this.duels.values()].find(x => !x.typeId && this.sameDuel(x, d));
+    if (!e) { e = { ...d, people: new Map() }; this.duels.set(this.key(d), e); }
+    e.people.set(user, now);
+    for (const [u, t] of e.people) if (t < now - CFG.betWindowMs) e.people.delete(u);
+    if (e.people.size >= CFG.betPeople && !(this.blocked.get(this.key(e)) > now)) this.open(ch, e, now);
+  },
+  sideName(key, ch) { return key === '@' ? ch.name : key; },
+  open(ch, e, now) {
+    this.cur = { id: now, login: ch.login, channel: ch.name, a: e.a, b: e.b, aName: this.sideName(e.a, ch), bName: this.sideName(e.b, ch),
+                 t: now, lockAt: now + CFG.betOpenMs, deadline: now + CFG.betMaxMs, state: 'open', pick: null, stake: 0 };
+    this.duels.clear();
+    this.claims = { a: new Map(), b: new Map() };
+    this.save();
+    render();
+  },
+  openQuestion(ch, e, now) {
+    this.cur = { id: now, login: ch.login, channel: ch.name, typeId: e.typeId, qKey: e.key, title: e.title, a: '+ja', b: '+nein', aName: 'Ja', bName: 'Nein',
+                 t: now, lockAt: now + CFG.betOpenMs, deadline: now + CFG.betMaxMs, state: 'open', pick: null, stake: 0 };
+    this.duels.clear();
+    this.claims = { a: new Map(), b: new Map() };
+    this.save();
+    render();
+  },
+  claim(winner, user, text, now) {
+    const other = winner === 'a' ? 'b' : 'a';
+    this.claims[other].delete(user); // Wer sich korrigiert, zählt nur einmal
+    this.claims[winner].set(user, { t: now, text: text.slice(0, 80) });
+  },
+  place(side) {
+    const c = this.cur;
+    if (!c || c.state !== 'open') return;
+    c.pick = side; c.stake = this.stake; c.state = 'placed';
+    this.save();
+    render();
+  },
+  /* Sucht Meldungen wie „rezo hat gewonnen“ oder „hugo verloren“. Vermutungen zählen nicht. */
+  listen(ch, user, text, now) {
+    const c = this.cur;
+    if (text.includes('?')) return;
+    const words = text.toLowerCase().replace(/@/g, '').match(/[\p{L}\p{N}_]+/gu) || [];
+    if (words.some(w => GUESS_WORDS.has(w))) return;
+    if (c.typeId) {
+      const type = BET_TYPES.find(t => t.id === c.typeId);
+      const yes = type ? type.yes.test(text) : OPEN_YES.test(text.trim());
+      const no = type ? type.no.test(text) : OPEN_NO.test(text.trim());
+      if (no) this.claim('b', user, text, now);
+      else if (yes) this.claim('a', user, text, now);
+      return;
+    }
+    const isSide = (w, key) => key === '@' ? this.isStreamer(w, ch) : wordsMatch(w, key);
+    let best = null;
+    words.forEach((w, i) => {
+      const verb = WIN_WORDS.has(w) || w === 'w' ? 'win' : LOSE_WORDS.has(w) || w === 'l' ? 'lose' : null;
+      if (!verb) return;
+      words.forEach((v, j) => {
+        const dist = Math.abs(i - j);
+        if (dist === 0 || dist > 3) return;
+        const side = isSide(v, c.a) ? 'a' : isSide(v, c.b) ? 'b' : null;
+        if (side && (!best || dist < best.dist)) best = { dist, side, verb };
+      });
+    });
+    if (!best) return;
+    this.claim(best.verb === 'win' ? best.side : best.side === 'a' ? 'b' : 'a', user, text, now);
+  },
+  count(side, now) {
+    const m = this.claims[side];
+    for (const [u, x] of m) if (x.t < now - CFG.betClaimMs) m.delete(u);
+    return m.size;
+  },
+  tick(now) {
+    for (const [k, t] of this.blocked) if (t <= now) this.blocked.delete(k);
+    for (const [k, e] of this.duels) {
+      for (const [u, t] of e.people) if (t < now - CFG.betWindowMs) e.people.delete(u);
+      if (!e.people.size) this.duels.delete(k);
+    }
+    const c = this.cur;
+    if (!c) return;
+    if (c.state === 'done') { if (now >= c.showUntil) { this.cur = null; this.save(); } return; }
+    const a = this.count('a', now), b = this.count('b', now);
+    // Sobald der Chat einen Sieger meldet oder die Zeit um ist, lässt sich nicht mehr tippen.
+    if (c.state === 'open' && (now >= c.lockAt || a + b >= 2)) {
+      this.block(c, now);
+      this.cur = null;
+      this.save();
+      return;
+    }
+    if (now - c.t >= CFG.betMinMs) {
+      const lead = (x, y) => x >= CFG.betWinPeople && x >= y * CFG.betWinLead;
+      const won = lead(a, b) ? 'a' : lead(b, a) ? 'b' : null;
+      if (won) { this.finish(won, this.claims[won].size, [...this.claims[won].values()][0].text, now); return; }
+    }
+    if (now >= c.deadline || (!S.channels.has(c.login) && now - c.t >= 300000)) this.finish(null, 0, '', now);
+  },
+  /* winner ist 'a', 'b' oder null für unklar. Ohne klaren Sieger bleibt der Einsatz erhalten. */
+  finish(winner, people, quote, now) {
+    const c = this.cur;
+    c.state = 'done'; c.winner = winner; c.people = people; c.quote = quote;
+    c.delta = !winner ? 0 : c.pick === winner ? c.stake : -c.stake;
+    c.showUntil = now + CFG.betShowMs;
+    this.points += c.delta;
+    this.history.push({ id: c.id, t: c.t, channel: c.channel, title: c.title, aName: c.aName, bName: c.bName, pick: c.pick, stake: c.stake, winner, delta: c.delta, people, quote });
+    this.block(c, now);
+    this.save();
+  },
+  block(c, now) { this.blocked.set(this.keyOf(c), now + (c.typeId ? CFG.betQuestionRepeatMs : CFG.betIgnoreMs)); },
+  /* Der Chat kann sich irren: Das Ergebnis lässt sich umdrehen. */
+  flip() {
+    const c = this.cur;
+    if (!c || c.state !== 'done' || !c.winner) return;
+    this.points -= c.delta;
+    c.winner = c.winner === 'a' ? 'b' : 'a';
+    c.delta = c.pick === c.winner ? c.stake : -c.stake;
+    c.flipped = true;
+    this.points += c.delta;
+    const rec = this.history.find(h => h.id === c.id);
+    if (rec) { rec.winner = c.winner; rec.delta = c.delta; rec.flipped = true; }
+    this.save();
+    render();
+  },
+  /* Wenn der Chat kein klares Ergebnis liefert, entscheidest du selbst. */
+  decide(side) {
+    this.finish(side, 0, '', Date.now());
+    render();
+  },
+  ignore(now) {
+    const c = this.cur;
+    if (!c) return;
+    this.block(c, now);
+    this.cur = null;
+    this.save();
+    render();
+  },
+  render(now) {
+    const box = $('betBox'), c = this.cur;
+    box.hidden = !c;
+    if (!c) { box.replaceChildren(); return; }
+    const el = (cls, text) => { const d = document.createElement('div'); d.className = cls; d.textContent = text; return d; };
+    const btn = (text, fn, cls = '') => { const b = document.createElement('button'); b.textContent = text; b.className = cls; b.onclick = fn; return b; };
+    const line = (...kids) => { const d = document.createElement('div'); d.className = 'brow'; d.append(...kids); return d; };
+    const title = el('bt', `Live-Wette: ${c.title || `${c.aName} gegen ${c.bName}`}`);
+    if (c.state === 'open') {
+      const left = Math.max(0, c.lockAt - now);
+      box.replaceChildren(title, el('bs', `Im Chat von ${c.channel} erkannt. Tippen noch ${Math.floor(left / 60000)}:${String(Math.floor(left % 60000 / 1000)).padStart(2, '0')}.${c.title ? '' : ' Wer gewinnt?'}`),
+        line(btn(c.aName, () => this.place('a'), 'pick'), btn(c.bName, () => this.place('b'), 'pick')),
+        line(...CFG.betStakes.map(v => btn(`${v} Punkte`, () => { this.stake = v; render(); }, 'chip' + (this.stake === v ? ' on' : ''))), btn('✕', () => this.ignore(Date.now()))));
+      box.querySelector('.brow:last-child button:last-child').setAttribute('aria-label', 'Wette ignorieren');
+    } else if (c.state === 'placed') {
+      box.replaceChildren(title, el('bs', `Du setzt ${c.stake} Punkte auf ${c.pick === 'a' ? c.aName : c.bName}. Ich lese den Chat mit und werte aus, sobald klar ist, wer gewonnen hat.`),
+        line(btn(c.aName, () => this.decide('a'), 'self'), btn(c.bName, () => this.decide('b'), 'self'), btn('Abbrechen', () => { this.finish(null, 0, '', Date.now()); render(); })));
+      box.querySelector('.brow').prepend(Object.assign(document.createElement('span'), { textContent: 'Selbst entscheiden:' }));
+    } else {
+      const name = c.winner === 'a' ? c.aName : c.bName;
+      const headline = c.title ? `Ergebnis: ${name}` : `${name} hat gewonnen`;
+      const points = c.delta > 0 ? `+${c.delta} Punkte` : c.delta < 0 ? `${c.delta} Punkte` : 'Einsatz zurück';
+      if (!c.winner) box.replaceChildren(title, el('bs', 'Kein klares Ergebnis im Chat. Dein Einsatz bleibt erhalten.'));
+      else box.replaceChildren(title, el('bs', `${headline}: ${points}${c.flipped ? ' (von dir korrigiert)' : c.people ? ` · ${c.people} Leute im Chat` : ' (von dir entschieden)'}`),
+        ...(c.quote && !c.flipped ? [el('bq', `„${c.quote}“`)] : []),
+        ...(c.flipped || !c.people ? [] : [line(btn('Stimmt nicht', () => this.flip()))]));
+    }
+  },
+};
+
+{
+  const saved = store.json('betPoints', null);
+  Bets.points = saved !== null ? saved : Bets.history.reduce((n, h) => n + (h.delta || 0), 0);
+  for (const old of ['highlights', 'hypeTip', 'tipStats']) store.del(old);
+}
+
+/* ---------- Schauzeit: Streams, die du oft schaust ---------- */
+const Watch = {
+  data: store.json('watchTime', {}), last: 0,
+  minutes(login, now) {
+    const e = this.data[login];
+    if (!e) return 0;
+    return e.sec / 60 * 0.5 ** ((now - e.t) / (CFG.watchHalfLifeDays * 86400000));
+  },
+  /* Zählt nur, solange die Seite sichtbar ist und der Stream wirklich läuft. */
+  tick(now) {
+    const elapsed = Math.min(now - this.last, 30000);
+    this.last = now;
+    if (!S.current || S.clip || S.show || document.hidden || !S.channels.has(S.current) || elapsed <= 0) return;
+    const had = this.minutes(S.current, now) * 60;
+    this.data[S.current] = { sec: had + elapsed / 1000, t: now };
+    store.setJson('watchTime', this.data);
+  },
+  /* Bonus für die Sortierung. Der stärkste Kanal bekommt am meisten, Neulinge nichts. */
+  bonus(login, now) {
+    const mins = this.minutes(login, now);
+    if (mins < CFG.watchMinMinutes) return 0;
+    const top = Math.max(60, ...Object.keys(this.data).map(l => this.minutes(l, now)));
+    return CFG.watchMaxBonus * Math.log(1 + mins) / Math.log(1 + top);
+  },
+  reset() { this.data = {}; store.setJson('watchTime', {}); },
+};
+
+/* ---------- Chat-Bingo ---------- */
+const BINGO_WORDS = 'kekw lul lol gg wtf omg pog rip haha krass digga monka sadge nice bruh clip ez sheesh wow oof'.split(' ');
+const BINGO_LINES = [[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15],[0,4,8,12],[1,5,9,13],[2,6,10,14],[3,7,11,15],[0,5,10,15],[3,6,9,12]];
+const Bingo = {
+  card: store.json('bingoCard', null), freq: new Map(), freqLogin: null, active: new Map(), people: new Map(),
+  save() { store.setJson('bingoCard', this.card); },
+  words(text) { return text.toLowerCase().match(/[\p{L}\p{N}_]{2,25}/gu) || []; },
+  /* Wird für jede Nachricht gerufen. Merkt sich die Wörter im laufenden Stream und prüft die Karte. */
+  add(ch, user, text, now) {
+    if (BOTS.has(user)) return;
+    const words = new Set(this.words(text));
+    if (ch.login === S.current) {
+      if (this.freqLogin !== ch.login) { this.freq.clear(); this.freqLogin = ch.login; }
+      for (const w of words) this.freq.set(w, (this.freq.get(w) || 0) + 1);
+    }
+    const c = this.card;
+    if (!c || c.login !== ch.login || c.done) return;
+    this.active.set(user, now);
+    let hit = false;
+    for (const cell of c.cells) {
+      if (cell.hit || !words.has(cell.key)) continue;
+      const m = this.people.get(cell.key) || new Map();
+      m.set(user, now);
+      this.people.set(cell.key, m);
+      for (const [u, t] of m) if (t < now - CFG.bingoWindowMs) m.delete(u);
+      for (const [u, t] of this.active) if (t < now - 60000) this.active.delete(u);
+      if (m.size >= Math.max(CFG.bingoPeople, Math.ceil(this.active.size * CFG.bingoShare))) { cell.hit = true; hit = true; }
+    }
+    if (hit) { this.score(now); this.save(); render(); }
+  },
+  /* Gibt Punkte für neue volle Reihen und die volle Karte. */
+  score(now) {
+    const c = this.card;
+    BINGO_LINES.forEach((line, i) => {
+      if (c.lines.includes(i) || !line.every(n => c.cells[n].hit)) return;
+      c.lines.push(i);
+      Bets.points += CFG.bingoLine;
+      Toast.add(`Bingo! Volle Reihe: +${CFG.bingoLine} Punkte`, null, now);
+    });
+    if (c.cells.every(x => x.hit) && !c.done) {
+      c.done = true;
+      Bets.points += CFG.bingoFull;
+      Toast.add(`Volle Karte! +${CFG.bingoFull} Punkte`, null, now);
+    }
+    Bets.save();
+  },
+  /* Baut eine Karte aus dem, was in diesem Chat oft fällt, seinen Emotes und typischen Chat-Wörtern. */
+  newCard(ch) {
+    const shuffle = l => { const a = [...l]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const emoteOf = key => {
+      for (const map of [ch.emoteMap, Emotes.global]) if (map) for (const e of map.values()) if (e.name.toLowerCase() === key) return e;
+      return null;
+    };
+    const often = ch.login === this.freqLogin
+      ? [...this.freq].filter(([w, n]) => n >= 2 && w.length >= 3 && !/^\d+$/.test(w) && !STOP.has(w) && !NOT_SIDE.has(w)).sort((a, b) => b[1] - a[1]).slice(0, 30).map(x => x[0])
+      : [];
+    const emotes = shuffle([...(ch.emoteMap ? ch.emoteMap.values() : [])]).map(e => e.name.toLowerCase()).filter(k => /^[\p{L}\p{N}_]{2,25}$/u.test(k));
+    const picked = [...new Set([...shuffle(often).slice(0, 6), ...emotes.slice(0, 4), ...shuffle(BINGO_WORDS)])].slice(0, 16);
+    this.card = {
+      login: ch.login, name: ch.name, joker: true, lines: [], done: false,
+      cells: shuffle(picked).map(key => { const e = emoteOf(key); return { key, label: e ? e.name : key, url: e ? e.url : null, hit: false }; }),
+    };
+    this.people.clear(); this.active.clear();
+    this.save();
+  },
+  /* Einmal pro Karte darfst du ein Feld selbst abhaken. */
+  joker(cell, now) {
+    const c = this.card;
+    if (!c || !c.joker || cell.hit || c.done) return;
+    c.joker = false; cell.hit = true;
+    this.score(now);
+    this.save();
+    render();
+  },
+  render(box, now) {
+    const c = this.card, cur = S.current ? S.channels.get(S.current) : null;
+    // Erst etwas mitlesen, damit die Karte zu diesem Chat passt.
+    const enough = cur && this.freqLogin === cur.login && [...this.freq.values()].reduce((n, x) => n + x, 0) >= 40;
+    if (!c && cur && (enough || now - S.playedAt >= 45000)) this.newCard(cur);
+    if (!this.card) return box.replaceChildren(note(cur ? 'Deine Karte entsteht gerade aus dem, was im Chat geschrieben wird …' : 'Sobald ein Stream läuft, bekommst du hier eine Bingo-Karte.'));
+    const card = this.card;
+    const head = document.createElement('div'); head.className = 'bingoHead';
+    const text = document.createElement('span');
+    const status = card.done ? 'Volle Karte!' : card.joker ? 'Joker frei: Klick auf ein Feld' : `${card.cells.filter(x => x.hit).length} von 16`;
+    text.textContent = `${card.name} · ${Bets.points} Punkte · ${status}`;
+    head.append(text);
+    if (cur) {
+      const fresh = document.createElement('button');
+      fresh.textContent = cur.login === card.login ? 'Neue Karte' : `Karte für ${cur.name}`;
+      fresh.onclick = () => { this.newCard(cur); render(); };
+      head.append(fresh);
+    }
+    const lined = new Set(card.lines.flatMap(i => BINGO_LINES[i]));
+    const grid = document.createElement('div'); grid.className = 'bingo';
+    grid.append(...card.cells.map((cell, i) => {
+      const b = document.createElement('button');
+      b.className = (cell.hit ? 'hit' : '') + (lined.has(i) ? ' line' : '');
+      b.setAttribute('aria-pressed', String(cell.hit));
+      b.setAttribute('aria-label', `${cell.label}${cell.hit ? ', abgehakt' : ''}`);
+      if (cell.url) { const img = document.createElement('img'); img.src = cell.url; img.alt = ''; img.onerror = () => img.remove(); b.append(img); }
+      b.append(cell.label);
+      b.onclick = () => this.joker(cell, Date.now());
+      return b;
+    }));
+    box.replaceChildren(head, grid);
+  },
+};
+
+/* ---------- Tageshighlights: Show aus den Clips des Tages ---------- */
+const SHOW_LINES = {
+  'lacht': ['Achtung, Lachmuskel-Alarm.', 'Der Titel verspricht Gelächter. Mal sehen, ob er recht hat.'],
+  'ist schockiert': ['Moment. Was passiert hier gerade?', 'Halte dich besser irgendwo fest.'],
+  'feiert': ['Hier wird gefeiert. Zu Recht?', 'Konfetti hätten wir jetzt gern.'],
+  'leidet': ['Das sieht nach Schmerzen aus. Schön.', 'Ein Moment der Stille. Oder auch nicht.'],
+  none: ['Die Leute wollten das nochmal sehen. Wir auch.', 'Keine Ahnung, was gleich kommt. Genau deshalb läuft es.', 'Jemand fand das so gut, dass er einen Clip gemacht hat.', 'Lehn dich zurück, das hier hat es in die Show geschafft.'],
+};
+const SHOW_SOUND = { 'lacht': 'boing', 'ist schockiert': 'shock', 'feiert': 'horn', 'leidet': 'sad', none: 'whoosh' };
+
+const Show = {
+  day: store.json('dayClips', { date: '', clips: {} }), timer: null, ctx: null, lastSound: null,
+  /* Merkt sich alle Clips von heute, auch wenn sie später aus dem 6-Stunden-Fenster fallen. */
+  collect(list, now) {
+    const date = new Date(now).toDateString();
+    if (this.day.date !== date) this.day = { date, clips: {} };
+    let changed = false;
+    for (const c of list) {
+      if (!c.id || new Date(Date.parse(c.created_at)).toDateString() !== date) continue;
+      const old = this.day.clips[c.id];
+      if (old && old.view_count === c.view_count) continue;
+      this.day.clips[c.id] = { id: c.id, title: c.title || '', view_count: c.view_count || 0, duration: c.duration || 30, broadcaster_id: c.broadcaster_id, broadcaster_name: c.broadcaster_name || '', created_at: c.created_at, thumbnail_url: c.thumbnail_url || '' };
+      changed = true;
+    }
+    if (!changed) return;
+    const all = Object.values(this.day.clips);
+    if (all.length > 200) this.day.clips = Object.fromEntries(all.sort((a, b) => b.view_count - a.view_count).slice(0, 200).map(c => [c.id, c]));
+    store.setJson('dayClips', this.day);
+  },
+  /* Die besten Clips von heute, als Countdown: der mit den meisten Aufrufen kommt zuletzt. */
+  scenes(now) {
+    if (this.day.date !== new Date(now).toDateString()) return [];
+    return Hype.pickTopClips(Object.values(this.day.clips), CFG.showScenes, CFG.showPerChannel).sort((a, b) => a.view_count - b.view_count);
+  },
+  moodOf(c) { const m = MOODS.find(x => x[1].test(c.title)); return m ? m[0] : 'none'; },
+  /* Alle Sounds entstehen hier im Browser, es werden keine Audiodateien geladen. */
+  sound(kind) {
+    this.lastSound = kind;
+    if (!S.settings.showSound) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      this.ctx = this.ctx || new AC();
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      const t0 = this.ctx.currentTime + 0.02;
+      const tone = (freq, at, dur, type = 'sine', vol = 0.12, to) => {
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(freq, t0 + at);
+        if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + at + dur);
+        g.gain.setValueAtTime(vol, t0 + at);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + at + dur);
+        o.connect(g).connect(this.ctx.destination);
+        o.start(t0 + at); o.stop(t0 + at + dur + 0.02);
+      };
+      if (kind === 'whoosh') tone(180, 0, 0.45, 'sawtooth', 0.05, 1400);
+      else if (kind === 'boing') { tone(160, 0, 0.3, 'sine', 0.16, 620); tone(620, 0.28, 0.25, 'sine', 0.1, 240); }
+      else if (kind === 'shock') { tone(150, 0, 0.3, 'square', 0.08); tone(140, 0.34, 0.3, 'square', 0.08); tone(90, 0.68, 0.8, 'square', 0.09); }
+      else if (kind === 'horn') for (const at of [0, 0.22, 0.44]) { tone(440, at, 0.18, 'sawtooth', 0.07); tone(554, at, 0.18, 'sawtooth', 0.05); }
+      else if (kind === 'sad') { tone(392, 0, 0.35, 'sawtooth', 0.07); tone(370, 0.36, 0.35, 'sawtooth', 0.07); tone(349, 0.72, 0.35, 'sawtooth', 0.07); tone(330, 1.08, 0.9, 'sawtooth', 0.07, 280); }
+      else [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.14, i === 3 ? 0.7 : 0.16, 'triangle', 0.13));
+    } catch { /* Ohne Ton läuft die Show trotzdem */ }
+  },
+  card(...parts) {
+    const box = $('showCard');
+    box.replaceChildren(...parts.map(([cls, text, src]) => {
+      if (src !== undefined) { const i = document.createElement('img'); i.className = cls; i.alt = ''; i.src = src; i.onerror = () => i.remove(); return i; }
+      const d = document.createElement('div'); d.className = cls; d.textContent = text; return d;
+    }));
+    box.hidden = false;
+  },
+  blank() {
+    clearTimeout(clipTimer);
+    S.clip = null; S.clipAuto = false; S.prompt = null; S.lead = null;
+    $('player').removeAttribute('src');
+    $('player').hidden = true;
+    $('empty').hidden = true;
+  },
+  start() {
+    const scenes = this.scenes(Date.now());
+    if (scenes.length < CFG.showMinScenes) return;
+    Multi.stop();
+    this.blank();
+    clearTimeout(this.timer);
+    S.show = { scenes, i: 0, phase: 'intro' };
+    this.sound('fanfare');
+    this.card(['sJoke', 'Smartstream präsentiert'], ['sRank', 'Dein Tag'], ['sName', `Die ${scenes.length} besten Szenen, von klein bis ganz groß`]);
+    this.timer = setTimeout(() => this.scene(), CFG.showCardMs);
+    render();
+  },
+  /* Grafik vor der Szene: Platz, Streamer, Titel und ein Spruch. */
+  scene() {
+    const s = S.show, c = s.scenes[s.i], rank = s.scenes.length - s.i;
+    s.phase = 'card';
+    this.blank();
+    const mood = this.moodOf(c), lines = SHOW_LINES[mood];
+    const joke = lines[[...c.id].reduce((n, ch) => n + ch.charCodeAt(0), 0) % lines.length];
+    this.sound(rank === 1 ? 'fanfare' : SHOW_SOUND[mood]);
+    const fact = `${c.view_count.toLocaleString('de')} Aufrufe · ${clock(Date.parse(c.created_at))} Uhr · ${Math.round(c.duration)} Sekunden`;
+    this.card(['sRank', rank === 1 ? 'Szene des Tages' : `Platz ${rank}`], ['sName', c.broadcaster_name], ...(c.thumbnail_url ? [['sThumb', '', c.thumbnail_url]] : []), ['sTitle', `„${c.title || 'Clip'}“`], ['sFact', fact], ['sJoke', joke]);
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.clip(), CFG.showCardMs);
+    render();
+  },
+  clip() {
+    const s = S.show, c = s.scenes[s.i];
+    s.phase = 'clip';
+    $('showCard').hidden = true;
+    clearTimeout(this.timer);
+    // Auf dem Handy startet ein Clip oft erst nach Antippen, deshalb geht es dort nur per Knopf weiter.
+    if (!waitsForTap) this.timer = setTimeout(() => this.next(), c.duration * 1000 + CFG.clipBufferMs);
+    playClip(c);
+  },
+  next() {
+    const s = S.show;
+    if (!s) return;
+    clearTimeout(this.timer);
+    if (s.phase === 'intro') { this.scene(); return; }
+    if (s.phase === 'card') { this.clip(); return; }
+    s.i++;
+    if (s.i < s.scenes.length) { this.scene(); return; }
+    s.i = s.scenes.length - 1;
+    s.phase = 'outro';
+    this.blank();
+    this.sound('fanfare');
+    const views = s.scenes.reduce((n, c) => n + c.view_count, 0), who = new Set(s.scenes.map(c => c.broadcaster_name)).size;
+    this.card(['sRank', 'Das war dein Tag'], ['sName', `${s.scenes.length} Szenen · ${who} ${who === 1 ? 'Streamer' : 'Streamer'} · ${views.toLocaleString('de')} Aufrufe`], ['sJoke', 'Morgen wieder. Der Chat schläft nie.']);
+    this.timer = setTimeout(() => this.stop(), CFG.showOutroMs);
+    render();
+  },
+  /* Räumt die Show weg, ohne einen Stream zu starten. */
+  clear() {
+    if (!S.show) return;
+    clearTimeout(this.timer);
+    S.show = null;
+    $('showCard').hidden = true;
+    $('showCard').replaceChildren();
+  },
+  /* Beendet die Show und geht zurück zum Stream. */
+  stop() {
+    this.clear();
+    clearTimeout(clipTimer);
+    S.clip = null; S.clipAuto = false;
+    if (S.current) { play(S.current); return; }
+    $('player').removeAttribute('src'); $('player').hidden = true; $('empty').hidden = false;
+    tick();
+  },
+  renderBox(box, now) {
+    const scenes = this.scenes(now);
+    const list = [...scenes].reverse().slice(0, 3).map((c, i) => row(`${i + 1}. ${c.title || 'Clip'}`, `${c.broadcaster_name} · ${c.view_count.toLocaleString('de')} Aufrufe`));
+    if (S.show) return box.replaceChildren(note(S.show.phase === 'outro' ? 'Die Show ist gleich zu Ende.' : `Die Show läuft: Szene ${S.show.i + 1} von ${S.show.scenes.length}.`));
+    if (scenes.length < CFG.showMinScenes) return box.replaceChildren(note(`Die Show entsteht aus den Clips des Tages. Heute gibt es noch ${scenes.length === 1 ? 'erst einen' : 'keinen'}, sie startet ab ${CFG.showMinScenes}.`));
+    const start = document.createElement('button');
+    start.className = 'primary'; start.id = 'showStart';
+    start.textContent = `Show starten (${scenes.length} Szenen)`;
+    start.onclick = () => this.start();
+    const sound = document.createElement('button');
+    sound.id = 'showSound';
+    sound.textContent = S.settings.showSound ? 'Sounds: an' : 'Sounds: aus';
+    sound.onclick = () => { S.settings.showSound = !S.settings.showSound; store.setJson('settings', S.settings); render(); };
+    box.replaceChildren(start, sound, ...list);
+  },
+};
+
+/* ---------- Multi-View ---------- */
+const TITLE_WORDS = new Set('live stream streams heute today day tag ranked drops giveaway follow neu new gaming chill zocken spielen road grind playing'.split(' '));
+const EVENT_WORD = /turn[ie]+r|tournament|tourney|cup|pokal|rivals|champion|meisterschaft|final|liga|league|qualif|quali|major|masters|invitational|showmatch|event/;
+
+// Gleiche Bedeutung in verschiedenen Sprachen und Schreibweisen
+const SAME_WORD = { tournament: 'turnier', tourney: 'turnier', turniere: 'turnier', league: 'liga', final: 'finale', finals: 'finale', pokal: 'cup', championship: 'champion', championships: 'champion', champions: 'champion', meisterschaft: 'champion' };
+const canon = w => SAME_WORD[w] || w;
+
+/* Kleiner Tippfehler-Abstand: Wie viele Buchstaben müssen sich ändern? */
+function typoDistance(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/* Zwei Titelwörter passen auch ohne 100 % Übereinstimmung: Teilwort („cup“ in „noxcup“),
+   gleiche Bedeutung („tournament“ und „turnier“) oder kleiner Tippfehler („turnir“). */
+function wordsMatch(a, b) {
+  if (a === b || canon(a) === canon(b)) return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  if (long.includes(short) && short.length / long.length >= CFG.titlePartShare && (short.length >= 4 || EVENT_WORD.test(short))) return true;
+  const x = canon(a), y = canon(b); // „tournament“ und „turnir“ sollen sich auch finden
+  const shortest = Math.min(x.length, y.length);
+  if (shortest < 5 || x[0] !== y[0] || Math.abs(x.length - y.length) > 2) return false;
+  return typoDistance(x, y) <= (shortest >= 8 ? 2 : 1);
+}
+
+const Multi = {
+  scriptLoading: null,
+  /* Die aussagekräftigen Wörter eines Titels, ohne Befehle wie !merch und Füllwörter. */
+  words(title) {
+    const clean = (title || '').toLowerCase().replace(/![\p{L}\p{N}_]+/gu, ' ');
+    return new Set((clean.match(/[\p{L}\p{N}]+/gu) || []).filter(w => w.length >= 3 && !/^\d+$/.test(w) && !STOP.has(w) && !TITLE_WORDS.has(w)));
+  },
+  /* Ähnlich heißt: gleiches Event-Wort, mindestens zwei gemeinsame Wörter oder fast derselbe Titel. */
+  similar(a, b) {
+    const x = [...this.words(a)], y = [...this.words(b)];
+    const pairs = x.flatMap(w => y.filter(v => wordsMatch(w, v)).map(v => [w, v]));
+    if (!pairs.length) return false;
+    if (pairs.some(([w, v]) => EVENT_WORD.test(w) || EVENT_WORD.test(v))) return true;
+    const shared = new Set(pairs.map(p => p[0])).size;
+    if (shared >= 2) return true;
+    return shared / (x.length + y.length - shared) >= 0.5;
+  },
+  fits(ch, members, game) {
+    return !ch.hidden && ch.game === game && members.every(m => this.similar(ch.title, m.title));
+  },
+  /* Sucht die Gruppe aus gleicher Kategorie und ähnlichen Titeln: möglichst groß, dann möglichst viel Hype. */
+  bestGroup(count) {
+    const val = c => c.eff ?? c.score ?? 0;
+    const all = [...S.channels.values()].filter(c => c.game && !c.hidden).sort((a, b) => val(b) - val(a));
+    let best = null, bestSum = -1;
+    for (const seed of all) {
+      const group = [seed];
+      for (const c of all) {
+        if (group.length >= count) break;
+        if (c !== seed && this.fits(c, group, seed.game)) group.push(c);
+      }
+      if (group.length < 2) continue;
+      const sum = group.reduce((n, c) => n + val(c), 0);
+      if (!best || group.length > best.length || (group.length === best.length && sum > bestSum)) { best = group; bestSum = sum; }
+    }
+    return best;
+  },
+  /* Erweitert den laufenden Stream um die passendsten anderen. Er selbst bleibt immer dabei und vorne. */
+  groupFor(seed, count) {
+    const val = c => c.eff ?? c.score ?? 0;
+    const group = [seed];
+    if (!seed.game) return null;
+    for (const c of [...S.channels.values()].sort((a, b) => val(b) - val(a))) {
+      if (group.length >= count) break;
+      if (c !== seed && this.fits(c, group, seed.game)) group.push(c);
+    }
+    return group.length >= 2 ? group : null;
+  },
+  /* Das Wort, das die Gruppe verbindet, fürs Anzeigen. */
+  link() {
+    const members = [...S.multi.cells.keys()].map(l => S.channels.get(l)).filter(Boolean);
+    if (!members.length) return '';
+    const shared = [...this.words(members[0].title)].filter(w => members.every(m => [...this.words(m.title)].some(v => wordsMatch(w, v))));
+    return shared.find(w => EVENT_WORD.test(w)) || shared[0] || '';
+  },
+  loadScript() {
+    if (window.Twitch && window.Twitch.Player) return Promise.resolve();
+    if (!this.scriptLoading) this.scriptLoading = new Promise((ok, fail) => {
+      const el = document.createElement('script');
+      el.src = 'https://player.twitch.tv/js/embed/v1.js';
+      el.onload = ok;
+      el.onerror = () => { this.scriptLoading = null; fail(new Error('script')); };
+      document.head.append(el);
+    });
+    return this.scriptLoading;
+  },
+  async start(count) {
+    // Ausgangspunkt ist der Stream, den du gerade schaust. Nur wenn keiner läuft, zählt die beste Gruppe.
+    const seed = S.current ? S.channels.get(S.current) : null;
+    const group = S.multi ? null : seed ? this.groupFor(seed, count) : this.bestGroup(count);
+    if (!S.multi && !group) {
+      Toast.add(seed ? `Multi-View: Zu ${seed.name} läuft gerade kein Stream in derselben Kategorie mit ähnlichem Titel.`
+                     : 'Multi-View: Gerade laufen keine zwei Streams in derselben Kategorie mit ähnlichem Titel.');
+      render();
+      return;
+    }
+    try { await this.loadScript(); }
+    catch { Toast.add('Multi-View konnte nicht geladen werden.'); render(); return; }
+    if (!S.token) return;
+    if (!S.multi) {
+      // Der Ton bleibt zunächst beim laufenden Stream. Erst nach Lösen von „Ton hier“ folgt er dem Hype.
+      S.multi = { count, game: group[0].game, cells: new Map(), loud: null, loudAt: 0, pin: seed ? seed.login : null, anchor: seed ? seed.login : null, anchorMuted: false };
+      S.dockForce = false;
+      Show.clear();
+      clearTimeout(clipTimer);
+      const wasClip = !!S.clip;
+      S.clip = null; S.clipAuto = false; S.prompt = null; S.lead = null;
+      // Dein Stream läuft im selben Player weiter und wird nicht neu geladen. Nur ein Clip wird ersetzt.
+      if (seed) {
+        if (wasClip || !($('player').getAttribute('src') || '').includes('channel=' + seed.login)) this.setAnchorSrc(seed.login, false);
+        $('player').hidden = false;
+      } else { $('player').removeAttribute('src'); $('player').hidden = true; }
+      $('empty').hidden = true;
+      $('multi').hidden = false;
+      for (const ch of group) this.addCell(ch);
+    }
+    const before = S.multi.cells.size;
+    S.multi.count = count;
+    this.update(Date.now());
+    if (S.multi && count > before && S.multi.cells.size === before) Toast.add('Multi-View: Keine weiteren passenden Streams gefunden.');
+    render();
+  },
+  setAnchorSrc(login, muted) {
+    const q = new URLSearchParams({ channel: login, parent: location.hostname, autoplay: 'true', muted: String(muted) });
+    $('player').src = 'https://player.twitch.tv/?' + q;
+  },
+  addCell(ch) {
+    const cell = document.createElement('div'); cell.className = 'cell';
+    const head = document.createElement('div'); head.className = 'cellHead';
+    const name = document.createElement('span'); name.className = 'n'; name.textContent = ch.name;
+    const score = document.createElement('span');
+    const sound = document.createElement('button');
+    sound.textContent = 'Ton hier';
+    sound.title = 'Legt den Ton hier fest. Nochmal klicken: Der Ton folgt dem höchsten Hype.';
+    sound.onclick = () => {
+      const m = S.multi;
+      m.pin = m.pin === ch.login ? null : ch.login;
+      if (m.pin) this.setLoud(ch.login, Date.now());
+      render();
+    };
+    const big = document.createElement('button');
+    big.textContent = 'Groß';
+    big.onclick = () => play(ch.login);
+    head.append(name, score, sound, big);
+    const holder = document.createElement('div'); holder.className = 'cellPlayer'; holder.id = 'mp-' + ch.login;
+    cell.append(head, holder);
+    $('multi').append(cell);
+    if (ch.login === S.multi.anchor) {
+      // Der vorhandene Player bleibt, sein Ton lässt sich nur durch Neuladen ändern. Das passiert nur, wenn du den Ton wegnimmst.
+      const self = this, m = S.multi;
+      const player = { muted: false, setMuted(x) { if (x === this.muted) return; this.muted = x; m.anchorMuted = x; self.setAnchorSrc(ch.login, x); } };
+      S.multi.cells.set(ch.login, { cell, score, sound, player, ready: true });
+      return;
+    }
+    const player = new window.Twitch.Player(holder.id, { channel: ch.login, width: '100%', height: '100%', parent: [location.hostname], autoplay: true, muted: true });
+    const entry = { cell, score, sound, player, ready: false };
+    S.multi.cells.set(ch.login, entry);
+    // Der Twitch-Player nimmt Befehle erst an, wenn er bereit ist.
+    player.addEventListener(window.Twitch.Player.READY, () => {
+      entry.ready = true;
+      if (S.multi && S.multi.cells.get(ch.login) === entry) this.applyMute(ch.login, entry);
+    });
+  },
+  applyMute(login, c) {
+    if (!c.ready) return;
+    try { c.player.setMuted(login !== S.multi.loud); } catch { /* Player gerade nicht bereit */ }
+  },
+  setLoud(login, now) {
+    const m = S.multi;
+    if (m.loud !== login) {
+      m.loud = login;
+      m.loudAt = now;
+      if (S.current !== login) { Mentions.clear(); S.current = login; S.playedAt = now; }
+      const ch = S.channels.get(login);
+      if (ch) S.currentName = ch.name;
+    }
+    for (const [l, c] of m.cells) {
+      this.applyMute(l, c);
+      c.cell.classList.toggle('loud', l === login);
+      c.sound.classList.toggle('on', m.pin === l);
+    }
+  },
+  update(now) {
+    const m = S.multi;
+    if (!m) return;
+    const drop = (login, c) => {
+      c.cell.remove(); m.cells.delete(login);
+      if (m.pin === login) m.pin = null;
+      if (m.anchor === login) { m.anchor = null; $('player').removeAttribute('src'); $('player').hidden = true; }
+    };
+    for (const [login, c] of m.cells) {
+      const ch = S.channels.get(login);
+      const over = m.cells.size > m.count && login !== m.anchor;
+      if (!ch || (ch.hidden && login !== m.anchor) || ch.game !== m.game || over) drop(login, c);
+    }
+    // Wer den Titel so ändert, dass er zu niemandem mehr passt, gehört nicht mehr dazu.
+    for (const [login, c] of m.cells) {
+      const others = [...m.cells.keys()].filter(l => l !== login).map(l => S.channels.get(l));
+      if (others.length && !others.some(o => this.similar(S.channels.get(login).title, o.title))) drop(login, c);
+    }
+    const val = c => c.eff ?? c.score ?? 0;
+    for (const ch of [...S.channels.values()].sort((a, b) => val(b) - val(a))) {
+      if (m.cells.size >= m.count) break;
+      const members = [...m.cells.keys()].map(l => S.channels.get(l));
+      if (!m.cells.has(ch.login) && this.fits(ch, members, m.game)) this.addCell(ch);
+    }
+    if (m.cells.size < 2) {
+      Toast.add('Multi-View beendet: Es laufen keine passenden Streams mehr.');
+      this.exit();
+      return;
+    }
+    const four = m.cells.size > 2;
+    $('multi').className = four ? 'n4' : 'n2';
+    $('stage').className = m.anchor ? (four ? 'a4' : 'a2') : '';
+    for (const [login, c] of m.cells) c.score.textContent = 'Hype ' + Math.round(S.channels.get(login).score || 0);
+    const members = [...m.cells.keys()].map(l => S.channels.get(l)).sort((a, b) => (b.score || 0) - (a.score || 0));
+    const curLoud = m.loud && m.cells.has(m.loud) ? S.channels.get(m.loud) : null;
+    let target = m.pin || (curLoud ? curLoud.login : members[0].login);
+    if (!m.pin && curLoud && members[0] !== curLoud && (members[0].score || 0) >= (curLoud.score || 0) + CFG.multiAudioMargin && now - m.loudAt >= CFG.multiAudioMinMs) target = members[0].login;
+    this.setLoud(target, now);
+  },
+  stop() {
+    if (!S.multi) return;
+    S.multi = null;
+    S.dockForce = false;
+    $('multi').replaceChildren();
+    $('multi').hidden = true;
+    $('stage').className = '';
+  },
+  /* Beendet Multi-View und zeigt den Stream mit dem Ton wieder groß. */
+  exit() {
+    if (S.current) { play(S.current); return; } // play lässt den laufenden Stream einfach weiterlaufen
+    this.stop();
+    $('empty').hidden = false;
+    tick();
+  },
+};
+
+/* ---------- Player und Oberfläche ---------- */
+function play(login) {
+  Show.clear();
+  // Ist das der Stream, der im Multi-View schon läuft, darf er einfach weiterlaufen.
+  const keep = S.multi && S.multi.anchor === login && !S.multi.anchorMuted;
+  Multi.stop();
+  const ch = S.channels.get(login);
+  if (login !== S.current) Mentions.clear();
+  if (S.mini && S.mini.login === login) closeMini(false);
+  S.current = login;
+  S.playedAt = Date.now();
+  if (ch) S.currentName = ch.name;
+  S.clip = null; S.clipAuto = false; clearTimeout(clipTimer);
+  S.prompt = null; S.lead = null;
+  S.lastPromptAt = Date.now();
+  const q = new URLSearchParams({ channel: login, parent: location.hostname, autoplay: 'true', muted: 'false' });
+  if (!keep) $('player').src = 'https://player.twitch.tv/?' + q;
+  $('player').hidden = false;
+  $('empty').hidden = true;
+  render();
+}
+
+let clipTimer = null;
+function playClip(clip, auto = false) {
+  Multi.stop();
+  S.clip = clip;
+  S.clipAuto = auto;
+  clearTimeout(clipTimer);
+  // Twitch meldet das Clip-Ende nicht an die Seite, deshalb zählt die Clip-Länge plus etwas Ladezeit.
+  // Auf dem Handy startet der Clip oft erst nach Antippen, ein Timer würde ihn überspringen.
+  if (auto && !waitsForTap) clipTimer = setTimeout(leaveClip, (clip.duration || 30) * 1000 + CFG.clipBufferMs);
+  S.prompt = null; S.lead = null;
+  const q = new URLSearchParams({ clip: clip.id, parent: location.hostname, autoplay: 'true', muted: 'false' });
+  $('player').src = 'https://clips.twitch.tv/embed?' + q;
+  $('player').hidden = false;
+  $('empty').hidden = true;
+  render();
+}
+
+/* Klick auf den Vorschlag: erst der Clip, der den Hype erklärt, dann der Live-Stream. */
+function acceptPrompt() {
+  const ch = S.prompt && S.channels.get(S.prompt);
+  if (!ch) return;
+  Prefs.vote(ch, 1);
+  const clip = hypeClip(ch);
+  if (!clip) { play(ch.login); return; }
+  S.current = ch.login;
+  S.currentName = ch.name;
+  S.lastPromptAt = Date.now();
+  playClip(clip, true);
+}
+
+function leaveClip() {
+  S.clip = null; S.clipAuto = false; clearTimeout(clipTimer);
+  if (S.current) { play(S.current); return; }
+  $('player').removeAttribute('src');
+  $('player').hidden = true;
+  $('empty').hidden = false;
+  tick();
+}
+
+/* Wörter aus Titel und Spiel des laufenden Streams sind keine Hinweise auf andere Streamer. */
+function contextWords(ch) {
+  if (ch.ctxKey !== ch.title + ch.game) {
+    ch.ctxKey = ch.title + ch.game;
+    ch.ctx = new Set(((ch.title + ' ' + ch.game + ' ' + ch.login).toLowerCase().match(/[a-z0-9_]{4,25}/g)) || []);
+  }
+  return ch.ctx;
+}
+
+function isPartOf(word, login) {
+  return login !== word && login.includes(word) && word.length / login.length >= CFG.mentionPartialShare;
+}
+
+async function checkMentions(now) {
+  for (const [k, t] of S.blocked) if (t <= now) S.blocked.delete(k);
+  if (!S.miniOn || !S.current || S.mini || Mentions.busy) return;
+  if (S.show || now - S.playedAt < CFG.mentionDelayMs) return; // Erst den neuen Stream in Ruhe ankommen lassen
+  const cur = S.current;
+  const known = new Set([...S.knownLogins, ...S.channels.keys()]);
+  const usable = login => login !== cur && !S.blocked.has(login) && !(Mentions.checked.get(login) > now - 300000);
+  const aliasOf = login => Object.keys(CFG.aliases).find(k => CFG.aliases[k] === login);
+  const list = new Map();
+  const add = c => { if (usable(c.login) && !(list.get(c.login)?.count >= c.count)) list.set(c.login, c); };
+  const words = [];
+
+  // Ganzer Twitch-Name, @Name, Link oder Spitzname aus der Liste
+  for (const c of Mentions.candidates(now, known)) {
+    if (cur.includes(c.login)) continue; // meint vermutlich den laufenden Streamer selbst
+    add({ ...c, via: aliasOf(c.login) });
+    if (!c.strong) words.push(c);
+  }
+  // Teil des Namens eines Kanals, dem du folgst
+  for (const [word, e] of Mentions.seen) {
+    if (e.people.size < CFG.mentionPartial || cur.includes(word) || Mentions.authors.has(word)) continue;
+    for (const login of known) if (isPartOf(word, login)) add({ login, count: e.people.size, strong: true, via: word });
+  }
+  // Teil des Namens eines fremden Kanals: bei Twitch suchen, höchstens 2 Wörter pro Durchlauf
+  const searchNeed = Math.max(CFG.mentionPartialWord, Math.ceil(Mentions.authors.size * 0.05));
+  const search = words.filter(w => w.count >= searchNeed && !(Mentions.checked.get('w:' + w.login) > now - 300000)).slice(0, 2);
+  if (!list.size && !search.length) return;
+
+  Mentions.busy = true;
+  try {
+    for (const w of search) {
+      Mentions.checked.set('w:' + w.login, now);
+      const d = await api('search/channels', { query: w.login, live_only: 'true', first: 20 });
+      for (const r of d.data) {
+        const login = (r.broadcaster_login || '').toLowerCase();
+        if (r.is_live && isPartOf(w.login, login)) add({ login, count: w.count, strong: false, partial: true, via: w.login });
+      }
+    }
+    const asked = [...list.values()].sort((a, b) => b.count - a.count).slice(0, 50);
+    if (!asked.length) return;
+    for (const c of asked) Mentions.checked.set(c.login, now);
+    const d = await api('streams', asked.map(c => ['user_login', c.login]));
+    if (!S.token || !S.miniOn || S.mini || S.current !== cur) return;
+    const live = new Map(d.data.map(s => [s.user_login.toLowerCase(), s]));
+    const hits = asked.filter(c => {
+      const s = live.get(c.login);
+      return s && (c.strong || s.viewer_count >= (c.partial ? CFG.mentionPartialViewers : CFG.mentionWordViewers));
+    }).sort((a, b) => b.count - a.count || live.get(b.login).viewer_count - live.get(a.login).viewer_count);
+    if (hits.length) openMini(live.get(hits[0].login), hits[0].count, hits[0].via);
+  } catch { /* nächster Versuch beim nächsten Durchlauf */ } finally { Mentions.busy = false; }
+}
+
+function openMini(stream, count, via) {
+  const login = stream.user_login.toLowerCase();
+  S.mini = { login, name: stream.user_name || login, stream };
+  $('miniText').replaceChildren('Im Chat erwähnt: ', Object.assign(document.createElement('b'), { textContent: S.mini.name }), via ? ` („${via}“, ${count} Leute)` : ` (${count} Leute)`);
+  $('mini').hidden = false;
+  applyMiniMode();
+  placeMini();
+}
+
+function applyMiniMode() {
+  if (!S.mini) return;
+  const frame = $('miniFrame');
+  $('miniBig').textContent = isNarrow() ? 'Ansehen' : 'Groß';
+  if (isNarrow()) { frame.removeAttribute('src'); return; }
+  if (!frame.getAttribute('src')) {
+    const q = new URLSearchParams({ channel: S.mini.login, parent: location.hostname, autoplay: 'true', muted: 'true' });
+    frame.src = 'https://player.twitch.tv/?' + q;
+  }
+}
+
+function closeMini(block = true) {
+  if (!S.mini) return;
+  if (block) S.blocked.set(S.mini.login, Date.now() + CFG.mentionBlockMs);
+  S.mini = null;
+  $('miniFrame').removeAttribute('src');
+  $('mini').hidden = true;
+}
+
+function setMiniSize(w, h) {
+  const box = $('mini'), extra = box.offsetHeight - $('miniFrame').offsetHeight; // Kopfzeile und Rahmen
+  const width = Math.round(Math.max(CFG.miniMinW, Math.min(w, innerWidth)));
+  const height = Math.round(Math.max(CFG.miniMinH, Math.min(h, innerHeight - extra)));
+  box.style.width = width + 'px';
+  $('miniFrame').style.height = height + 'px';
+  return { w: width, h: height };
+}
+
+function setMiniPos(x, y) {
+  const box = $('mini');
+  const left = Math.max(0, Math.min(x, innerWidth - box.offsetWidth));
+  const top = Math.max(0, Math.min(y, innerHeight - box.offsetHeight));
+  box.style.left = left + 'px';
+  box.style.top = top + 'px';
+  return { x: left, y: top };
+}
+
+function placeMini() {
+  let pos = null, size = null;
+  try { pos = JSON.parse(store.get('miniPos')); size = JSON.parse(store.get('miniSize')); } catch {}
+  if (size && !isNarrow()) setMiniSize(size.w, size.h);
+  if (!pos) {
+    const stage = $('stage').getBoundingClientRect();
+    pos = { x: stage.right - $('mini').offsetWidth - 12, y: stage.top + 12 };
+  }
+  setMiniPos(pos.x, pos.y);
+}
+
+function agoText(iso) {
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  if (min < 60) return `vor ${min} Min.`;
+  return `vor ${Math.round(min / 60)} Std.`;
+}
+
+function renderClips() {
+  const box = $('clips');
+  const scroll = box.scrollTop;
+  const note = text => { const li = document.createElement('li'); li.className = 'note'; li.textContent = text; return li; };
+  if (S.topClips === null) { box.replaceChildren(note('Clips werden geladen …')); return; }
+  if (!S.topClips.length) { box.replaceChildren(note('Keine neuen Clips in diesem Zeitraum.')); return; }
+  box.replaceChildren(...S.topClips.map(c => {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.className = S.clip && S.clip.id === c.id ? 'on' : '';
+    b.onclick = () => { Show.clear(); playClip(c); };
+    const img = document.createElement('img');
+    img.alt = ''; img.loading = 'lazy'; if (c.thumbnail_url) img.src = c.thumbnail_url;
+    const title = document.createElement('div'); title.className = 'ctitle'; title.textContent = c.title || 'Clip';
+    const meta = document.createElement('div'); meta.className = 'cmeta';
+    meta.textContent = `${c.broadcaster_name} · ${(c.view_count || 0).toLocaleString('de')} Aufrufe · ${agoText(c.created_at)}`;
+    b.setAttribute('aria-label', `Clip ansehen: ${c.title || 'Clip'}, ${meta.textContent}`);
+    b.append(img, title, meta);
+    li.append(b);
+    return li;
+  }));
+  box.scrollTop = scroll;
+}
+
+function setPrompt(login) {
+  if (login === S.prompt) return;
+  const wasShowing = !!S.prompt;
+  S.prompt = login;
+  S.lead = null;
+  if (wasShowing || login) S.lastPromptAt = Date.now();
+  if (login) {
+    // Clips frisch holen, damit beim Klick auch ein ganz neuer Clip dabei ist.
+    const c = S.channels.get(login);
+    if (c && c.id) fetchChannelClips(c).then(render).catch(() => {});
+  }
+  if (login && S.notify && 'Notification' in window && Notification.permission === 'granted') {
+    const ch = S.channels.get(login);
+    try {
+      const n = new Notification(`${ch.name} geht gerade ab`, { body: Hype.reasons(ch).join(' · ') || 'Mehr los als im aktuellen Stream', tag: 'hype' });
+      n.onclick = () => { window.focus(); n.close(); };
+    } catch { /* manche Browser erlauben das nicht */ }
+  }
+}
+
+function drawSpark(ch, now) {
+  const box = $('sparkBox');
+  if (!ch || (ch.hist || []).length < 2) { box.hidden = true; return; }
+  box.hidden = false;
+  const svg = $('spark'), NS = 'http://www.w3.org/2000/svg', W = 104, H = 30;
+  const pts = ch.hist.map(h => `${(W - (now - h.t) / 600000 * W).toFixed(1)},${(H - 1 - Math.min(100, h.s || 0) / 100 * (H - 2)).toFixed(1)}`).join(' ');
+  const onGradient = $('bar').classList.contains('suggest');
+  let line = svg.querySelector('polyline');
+  if (!line) {
+    const defs = document.createElementNS(NS, 'defs'), g = document.createElementNS(NS, 'linearGradient');
+    g.id = 'sparkGrad';
+    for (const [o, c] of [['0', '#ff5fb7'], ['0.5', '#b565ff'], ['1', '#8a6bff']]) {
+      const st = document.createElementNS(NS, 'stop'); st.setAttribute('offset', o); st.setAttribute('stop-color', c); g.append(st);
+    }
+    defs.append(g);
+    line = document.createElementNS(NS, 'polyline');
+    line.setAttribute('fill', 'none'); line.setAttribute('stroke-width', '2'); line.setAttribute('vector-effect', 'non-scaling-stroke');
+    line.setAttribute('stroke-linejoin', 'round');
+    svg.append(defs, line);
+  }
+  line.setAttribute('stroke', onGradient ? '#14081f' : 'url(#sparkGrad)');
+  line.setAttribute('points', pts);
+  const text = `Hype ${Math.round(ch.score || 0)}, ${Hype.trendText(ch)}`;
+  $('sparkLabel').textContent = text;
+  svg.setAttribute('aria-label', `Hype-Verlauf der letzten 10 Minuten von ${ch.name}: ${text}`);
+}
+
+function row(title, sub, value) {
+  const el = document.createElement('div');
+  el.className = 'prow';
+  const main = document.createElement('div'); main.className = 'main';
+  const t = document.createElement('div'); t.className = 't'; t.textContent = title;
+  const s = document.createElement('div'); s.className = 's'; s.textContent = sub;
+  main.append(t, s);
+  el.append(main);
+  if (value !== undefined) { const v = document.createElement('span'); v.className = 'v'; v.textContent = value; el.append(v); }
+  return el;
+}
+const note = text => { const d = document.createElement('div'); d.className = 'pnote'; d.textContent = text; return d; };
+const clock = t => new Date(t).toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' });
+
+function renderBets(box) {
+  const placed = Bets.history.filter(h => h.pick && h.winner);
+  const won = placed.filter(h => h.delta > 0).length;
+  const head = note(`${Bets.points} Punkte · ${won} von ${placed.length} Wetten gewonnen`);
+  const items = [...Bets.history].reverse().filter(h => h.pick).slice(0, 25);
+  if (!items.length) return box.replaceChildren(head, note('Noch keine Wetten. Sobald der Chat deines Streams ein Duell oder eine Frage wie „schafft er das?“ aufbringt, kannst du oben tippen. Es geht nur um Punkte, nicht um Geld.'));
+  box.replaceChildren(head, ...items.map(h => {
+    const mine = h.pick === 'a' ? h.aName : h.bName;
+    const result = !h.winner ? 'unklar, Einsatz zurück' : `${h.title ? 'Ergebnis' : 'Sieger'}: ${h.winner === 'a' ? h.aName : h.bName}${h.flipped ? ' (korrigiert)' : ''}`;
+    return row(h.title || `${h.aName} gegen ${h.bName}`, `${clock(h.t)} · dein Tipp: ${mine} · ${result}`, h.delta > 0 ? `+${h.delta}` : String(h.delta));
+  }));
+}
+
+function renderPanel(now) {
+  Show.renderBox($('showBox'), now);
+  renderBets($('betHistory'));
+  Bingo.render($('bingoBox'), now);
+}
+
+/* Das untere Feld klappt im Multi-View ein, damit die Streams groß genug bleiben. Eine offene Wette holt es zurück. */
+function isDockClosed() {
+  const betOpen = Bets.cur && Bets.cur.state !== 'done';
+  if (betOpen) return false;
+  if (S.multi && !S.dockForce) return true;
+  return S.dockClosed;
+}
+
+function renderSettings() {
+  const st = S.settings;
+  $('setMini').checked = S.miniOn;
+  $('setPredict').checked = st.predict; $('setEvents').checked = st.events; $('setRain').checked = st.rain; $('setShowSound').checked = st.showSound;
+  $('setQuietOn').checked = st.quietOn; $('setFrom').value = st.from; $('setTo').value = st.to; $('setMode').value = st.mode;
+  const games = [...new Set([...S.channels.values()].map(c => c.game).filter(Boolean)), ...S.hiddenGames];
+  const unique = [...new Set(games)].sort((a, b) => a.localeCompare(b, 'de'));
+  $('setGames').replaceChildren(...(unique.length ? unique.map(g => {
+    const label = document.createElement('label');
+    const box = document.createElement('input'); box.type = 'checkbox'; box.checked = S.hiddenGames.has(g);
+    box.onchange = () => {
+      if (box.checked) S.hiddenGames.add(g); else S.hiddenGames.delete(g);
+      store.setJson('hiddenGames', [...S.hiddenGames]);
+      tick();
+    };
+    label.append(box, g);
+    return label;
+  }) : [note('Gerade läuft kein Spiel.')]));
+  const n = Prefs.count();
+  $('setPrefs').textContent = `Die Seite merkt sich, welche Vorschläge du annimmst oder wegklickst. Bisher: ${n} Entscheidungen, ${S.favorites.size} Favoriten. Die Live-Liste berücksichtigt außerdem, wie oft du Streams schaust.`;
+}
+
+function render() {
+  const cur = S.current ? S.channels.get(S.current) : null;
+  const p = S.prompt ? S.channels.get(S.prompt) : null;
+  const bar = $('bar');
+  bar.classList.toggle('suggest', !!p);
+  $('yes').hidden = $('no').hidden = !p;
+  $('back').hidden = !S.clip && !S.show;
+  $('showNext').hidden = !S.show || S.show.phase === 'outro';
+  $('barEmotes').replaceChildren(...(p && !S.clip ? Emotes.nodes(p, Date.now()) : []));
+  $('back').textContent = S.show ? 'Show beenden' : S.clipAuto ? 'Direkt live' : S.current ? 'Zurück zum Stream' : 'Clip schließen';
+  $('yes').textContent = p && hypeClip(p) ? 'Clip ansehen, dann live' : 'Wechseln';
+  drawSpark(S.clip || S.show ? null : p || cur, Date.now());
+  if (S.show) {
+    const sc = S.show.scenes[S.show.i];
+    const inClip = S.show.phase === 'clip' || S.show.phase === 'card';
+    $('l1').textContent = inClip ? `Tageshighlights, Platz ${S.show.scenes.length - S.show.i}: ${sc.title || 'Clip'}` : 'Tageshighlights';
+    $('l2').textContent = inClip ? `${sc.broadcaster_name} · ${(sc.view_count || 0).toLocaleString('de')} Aufrufe${waitsForTap && S.show.phase === 'clip' ? ' · Danach auf „Nächste Szene“ tippen' : ''}` : '';
+    document.title = 'Tageshighlights – Smartstream';
+  } else if (S.multi) {
+    const word = Multi.link();
+    $('l1').textContent = [`Multi-View: ${S.multi.game}`, word ? `„${word}“` : '', cur ? `Ton bei ${cur.name}` : ''].filter(Boolean).join(' · ');
+    $('l2').textContent = cur ? reasonsOf(cur).join(' · ') : '';
+    document.title = 'Multi-View – Smartstream';
+  } else if (S.clip) {
+    $('l1').textContent = S.clipAuto ? `Darum ist bei ${S.currentName} Hype: ${S.clip.title || 'Clip'}` : S.clip.title || 'Clip';
+    $('l2').textContent = S.clipAuto ? (waitsForTap ? 'Danach auf „Direkt live“ tippen' : 'Danach geht es automatisch live weiter') : `Clip von ${S.clip.broadcaster_name}`;
+    document.title = 'Clip – Smartstream';
+  } else if (p) {
+    $('l1').textContent = S.current && !cur ? `${S.currentName} ist offline. Zu ${p.name} wechseln?` : `Bei ${p.name} ist gerade mehr los. Wechseln?`;
+    $('l2').textContent = reasonsOf(p).join(' · ') || p.title;
+    document.title = `(!) ${p.name} – Smartstream`;
+  } else {
+    $('l1').textContent = cur ? cur.name : S.current ? `${S.currentName} ist offline` : 'Smartstream';
+    $('l2').textContent = cur ? [...(Mood.get(cur, Date.now()) ? ['Chat ' + Mood.get(cur, Date.now())] : []), cur.title].join(' · ') : S.channels.size ? '' : 'Niemand live, dem du folgst. Ich schaue jede Minute nach.';
+    document.title = cur ? `${cur.name} – Smartstream` : 'Smartstream';
+  }
+  if (!S.current && !S.multi) {
+    $('empty').textContent = S.firstLoadDone ? 'Gerade ist niemand live, dem du folgst. Sobald jemand startet, geht es hier los.' : 'Suche nach Streams …';
+  }
+
+  const nowList = Date.now(), listValue = c => (c.score || 0) + Watch.bonus(c.login, nowList);
+  const sorted = [...S.channels.values()].sort((a, b) => !!a.hidden - !!b.hidden || listValue(b) - listValue(a) || b.viewers - a.viewers);
+  const list = $('list');
+  const scroll = list.scrollTop;
+  list.replaceChildren(...sorted.map(ch => {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.className = ch.login === S.current && !S.clip ? 'on' : '';
+    b.onclick = () => { if (ch.login !== S.current) Prefs.vote(ch, 1); play(ch.login); };
+    const score = Math.round(ch.score || 0);
+    b.setAttribute('aria-label', `${ch.name} ansehen, Hype ${score}`);
+
+    const img = document.createElement('img');
+    img.alt = ''; img.loading = 'lazy'; if (ch.thumb) img.src = ch.thumb;
+    const name = document.createElement('div'); name.className = 'name'; name.textContent = ch.name;
+    const sc = document.createElement('div'); sc.className = 'score'; sc.textContent = score;
+    const meta = document.createElement('div'); meta.className = 'meta';
+    meta.textContent = [ch.viewers.toLocaleString('de'), ch.game].filter(Boolean).join(' · ');
+    const why = document.createElement('div');
+    const reasons = [...(Watch.bonus(ch.login, nowList) > 0 ? ['oft geschaut'] : []), ...reasonsOf(ch)];
+    why.className = 'why' + (reasons.length ? '' : ' calm');
+    why.textContent = reasons.join(' · ') || (ch.comp && ch.comp.measuring ? 'misst noch …' : 'ruhig');
+    why.prepend(...Emotes.nodes(ch, Date.now())); // vorne, damit langer Text sie nicht abschneidet
+    const meter = document.createElement('div'); meter.className = 'meter';
+    const fill = document.createElement('i'); fill.style.width = score + '%'; meter.append(fill);
+    b.append(img, name, sc, meta, why, meter);
+    li.append(b);
+    li.classList.toggle('dim', !!ch.hidden);
+    const fav = S.favorites.has(ch.login);
+    const star = document.createElement('button');
+    star.className = 'star' + (fav ? ' on' : '');
+    star.textContent = fav ? '★' : '☆';
+    star.setAttribute('aria-label', `${ch.name} ${fav ? 'nicht mehr als Favorit' : 'als Favorit'} markieren`);
+    star.setAttribute('aria-pressed', String(fav));
+    star.onclick = () => {
+      if (fav) S.favorites.delete(ch.login); else S.favorites.add(ch.login);
+      store.setJson('favorites', [...S.favorites]);
+      render();
+    };
+    li.append(star);
+    return li;
+  }));
+  list.scrollTop = scroll;
+
+  renderClips();
+  renderPanel(Date.now());
+  const closed = isDockClosed();
+  $('dock').classList.toggle('closed', closed);
+  $('dockBtn').textContent = closed ? 'Ausklappen' : 'Einklappen';
+  Toast.render();
+  Bets.render(Date.now());
+
+  const multiBtn = $('multiBtn');
+  multiBtn.textContent = S.multi ? `Multi-View: ${S.multi.count}` : 'Multi-View: aus';
+  multiBtn.classList.toggle('on', !!S.multi);
+  multiBtn.setAttribute('aria-pressed', String(!!S.multi));
+  multiBtn.disabled = !S.multi && S.channels.size < 2;
+
+  $('miniBtn').textContent = S.miniOn ? 'Streamer aus Chat öffnen: an' : 'Streamer aus Chat öffnen: aus';
+  $('miniBtn').setAttribute('aria-pressed', String(S.miniOn));
+  $('miniBtn').title = 'Öffnet einen kleinen Stream, wenn der Chat oft einen anderen Streamer nennt';
+
+  const autoBtn = $('autoBtn');
+  autoBtn.textContent = S.auto ? 'Automodus: an' : 'Automodus: aus';
+  autoBtn.classList.toggle('on', S.auto);
+  autoBtn.setAttribute('aria-pressed', String(S.auto));
+
+  const state = $('state');
+  const problem = S.apiError || (S.firstLoadDone && Chat.ws && !Chat.connected ? 'Chat-Verbindung wird wiederhergestellt …' : '');
+  state.textContent = problem || `Angemeldet als ${S.login}. Chat in ${Chat.wanted.size} Kanälen.`;
+  state.classList.toggle('warn', !!problem);
+  $('notifyBtn').hidden = isTouch; // Desktop-Hinweise gibt es auf dem Handy so nicht
+  $('notifyBtn').textContent = S.notify ? 'Desktop-Hinweise aus' : 'Desktop-Hinweise an';
+}
+
+/* ---------- Ablauf ---------- */
+let timers = [];
+function stopAll() {
+  timers.forEach(clearInterval); timers = [];
+  Chat.stop();
+  $('player').removeAttribute('src');
+  S.channels.clear(); S.current = null; S.prompt = null; S.lead = null; S.firstLoadDone = false; S.clip = null; S.clipAuto = false; S.topClips = null;
+  Show.clear(); Multi.stop(); S.toasts = [];
+  S.clipCache.clear(); S.followedIds = []; S.followedAt = 0; closeMini(false); S.extra.clear(); S.blocked.clear(); S.knownLogins.clear(); Mentions.clear();
+  clearTimeout(clipTimer);
+}
+
+function tick() {
+  const now = Date.now();
+  for (const ch of S.channels.values()) { Hype.update(ch, now); Prefs.apply(ch); }
+  for (const [k, t] of S.snoozed) if (t <= now) S.snoozed.delete(k);
+  checkMentions(now);
+  Bets.tick(now);
+  Watch.tick(now);
+  Toast.purge(now);
+  Rain.check(S.current ? S.channels.get(S.current) : null, now);
+
+  // Multi-View: Der Ton folgt dem Hype, Vorschläge und Automodus ruhen so lange.
+  if (S.multi) {
+    if (isNarrow()) { Multi.exit(); return; }
+    Multi.update(now);
+    render();
+    return;
+  }
+
+  // Ein Clip läuft: nichts dazwischenfunken, Vorschläge kommen wieder, wenn er geschlossen ist.
+  if (S.clip || S.show) { render(); return; }
+
+  if (!S.current && S.firstLoadDone && S.channels.size) {
+    // Es läuft noch nichts: direkt den aktuell besten Stream anschalten.
+    const all = [...S.channels.values()].sort((a, b) => (b.score || 0) - (a.score || 0) || b.viewers - a.viewers);
+    play((all.find(c => !c.hidden) || all[0]).login);
+    return;
+  }
+  const next = Hype.judge(S, now);
+  // Automodus: direkt live wechseln, ohne Nachfrage und ohne Clip.
+  if (S.auto && next) {
+    // In Ruhezeiten fragt die Seite stattdessen nach, außer der laufende Stream ist zu Ende.
+    const running = S.current && S.channels.has(S.current);
+    const allowed = !running || !quietActive(new Date(now)) || (S.settings.mode === 'high' && S.channels.get(next).score >= CFG.quietHigh);
+    if (allowed) { play(next); return; }
+  }
+  setPrompt(next);
+  render();
+}
+
+async function guarded(fn) {
+  try { await fn(); S.apiError = ''; return true; }
+  catch (e) {
+    if (e instanceof AuthError) { loggedOut('Deine Twitch-Anmeldung ist abgelaufen. Bitte neu anmelden.'); return false; }
+    S.apiError = 'Twitch ist gerade nicht erreichbar. Ich versuche es weiter.';
+    render();
+    return false;
+  }
+}
+
+async function startApp() {
+  $('setup').hidden = true;
+  $('app').hidden = false;
+  render();
+  Chat.start();
+  await guarded(refreshStreams);
+  if (!S.token) return;
+  await guarded(refreshClips);
+  if (!S.token) return;
+  S.firstLoadDone = true;
+  tick();
+  timers.push(setInterval(tick, CFG.tickMs));
+  timers.push(setInterval(() => guarded(refreshStreams), CFG.streamsMs));
+  timers.push(setInterval(() => guarded(refreshClips), CFG.clipsMs));
+  // Das Clip-Panel läuft still mit: Ein Aussetzer behält die alten Clips und ändert die Statuszeile nicht.
+  const topClipsQuiet = () => refreshTopClips().catch(e => {
+    if (e instanceof AuthError) loggedOut('Deine Twitch-Anmeldung ist abgelaufen. Bitte neu anmelden.');
+  });
+  topClipsQuiet();
+  timers.push(setInterval(topClipsQuiet, CFG.topClipsMs));
+  timers.push(setInterval(async () => {
+    try { if (!(await validate())) loggedOut('Deine Twitch-Anmeldung ist abgelaufen. Bitte neu anmelden.'); } catch {}
+  }, 3600000));
+}
+
+$('loginBtn').onclick = login;
+$('changeId').onclick = () => { $('firstRun').hidden = false; $('changeId').hidden = true; };
+$('yes').onclick = acceptPrompt;
+$('no').onclick = () => {
+  if (!S.prompt) return;
+  Prefs.vote(S.channels.get(S.prompt), -1);
+  S.snoozed.set(S.prompt, Date.now() + CFG.snoozeMs);
+  S.prompt = null; S.lead = null; S.lastPromptAt = Date.now();
+  render();
+};
+$('back').onclick = () => { if (S.show) Show.stop(); else leaveClip(); };
+$('miniClose').onclick = () => closeMini(true);
+$('miniBig').onclick = () => {
+  if (!S.mini) return;
+  const { login, stream } = S.mini;
+  closeMini(false);
+  S.extra.add(login);
+  upsertStream(stream, Date.now());
+  play(login);
+};
+function setMiniOn(on) {
+  S.miniOn = on;
+  store.set('mini', on ? '1' : '0');
+  if (!on) { closeMini(false); Mentions.clear(); }
+  render();
+}
+$('miniBtn').onclick = () => setMiniOn(!S.miniOn);
+$('setMini').onchange = () => setMiniOn($('setMini').checked);
+(() => {
+  // Beim Ziehen darf der Player die Maus nicht verschlucken.
+  const head = $('miniHead');
+  let grab = null;
+  head.addEventListener('pointerdown', e => {
+    if (e.target.closest('button') || isNarrow()) return;
+    const r = $('mini').getBoundingClientRect();
+    grab = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    head.setPointerCapture(e.pointerId);
+    $('miniFrame').style.pointerEvents = 'none';
+    e.preventDefault();
+  });
+  head.addEventListener('pointermove', e => { if (grab) setMiniPos(e.clientX - grab.dx, e.clientY - grab.dy); });
+  const drop = e => {
+    if (!grab) return;
+    grab = null;
+    $('miniFrame').style.pointerEvents = '';
+    const r = $('mini').getBoundingClientRect();
+    store.set('miniPos', JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) }));
+  };
+  head.addEventListener('pointerup', drop);
+  head.addEventListener('pointercancel', drop);
+  // Größe über den bunten Griff unten rechts ändern
+  const handle = $('miniResize');
+  let size = null;
+  handle.addEventListener('pointerdown', e => {
+    const r = $('mini').getBoundingClientRect();
+    size = { x: e.clientX, y: e.clientY, w: r.width, h: $('miniFrame').offsetHeight };
+    handle.setPointerCapture(e.pointerId);
+    $('miniFrame').style.pointerEvents = 'none';
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', e => {
+    if (!size) return;
+    const r = $('mini').getBoundingClientRect();
+    // Nicht über den Fensterrand hinaus wachsen
+    const maxW = innerWidth - r.left, maxH = innerHeight - r.top - ($('mini').offsetHeight - $('miniFrame').offsetHeight);
+    setMiniSize(Math.min(size.w + e.clientX - size.x, maxW), Math.min(size.h + e.clientY - size.y, maxH));
+  });
+  const endSize = () => {
+    if (!size) return;
+    size = null;
+    $('miniFrame').style.pointerEvents = '';
+    store.set('miniSize', JSON.stringify({ w: $('mini').offsetWidth, h: $('miniFrame').offsetHeight }));
+  };
+  handle.addEventListener('pointerup', endSize);
+  handle.addEventListener('pointercancel', endSize);
+  addEventListener('resize', () => { if (S.mini) { applyMiniMode(); placeMini(); } });
+})();
+$('autoBtn').onclick = () => {
+  S.auto = !S.auto;
+  store.set('auto', S.auto ? '1' : '0');
+  if (S.auto && S.prompt) play(S.prompt); // offener Vorschlag wird sofort übernommen
+  else render();
+};
+$('multiBtn').onclick = () => {
+  if (!S.multi) Multi.start(2);
+  else if (S.multi.count === 2) Multi.start(4);
+  else Multi.exit();
+};
+$('dockBtn').onclick = () => { S.dockClosed = !isDockClosed(); store.set('dockClosed', S.dockClosed ? '1' : '0'); S.dockForce = !S.dockClosed; render(); };
+$('showNext').onclick = () => Show.next();
+$('setBtn').onclick = () => { renderSettings(); $('settings').showModal(); };
+$('setClose').onclick = () => $('settings').close();
+const saveSettings = () => {
+  Object.assign(S.settings, {
+    predict: $('setPredict').checked, events: $('setEvents').checked, rain: $('setRain').checked, showSound: $('setShowSound').checked,
+    quietOn: $('setQuietOn').checked, from: $('setFrom').value || S.settings.from, to: $('setTo').value || S.settings.to, mode: $('setMode').value,
+  });
+  store.setJson('settings', S.settings);
+};
+for (const id of ['setShowSound', 'setPredict', 'setEvents', 'setRain', 'setQuietOn', 'setFrom', 'setTo', 'setMode']) $(id).onchange = saveSettings;
+$('setReset').onclick = () => { S.prefs = { ch: {}, game: {} }; store.setJson('prefs', S.prefs); Watch.reset(); renderSettings(); render(); };
+$('logoutBtn').onclick = () => loggedOut('');
+$('notifyBtn').onclick = async () => {
+  if (S.notify) { S.notify = false; store.set('notify', '0'); render(); return; }
+  if (!('Notification' in window)) return;
+  const perm = await Notification.requestPermission();
+  S.notify = perm === 'granted';
+  store.set('notify', S.notify ? '1' : '0');
+  render();
+};
+
+/* Handys frieren die Seite im Hintergrund ein: beim Zurückkommen neu aufsetzen. */
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (!S.token || !S.firstLoadDone) return;
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (Date.now() - hiddenAt < 30000) return;
+  const dead = !Chat.ws || Chat.ws.readyState > 1;
+  if (isTouch || dead) {
+    const now = Date.now();
+    for (const ch of S.channels.values()) Hype.resetChat(ch, now); // die Lücke ist kein echter Abfall im Chat
+    Mentions.clear();
+  }
+  if (dead) Chat.start();
+  guarded(refreshStreams).then(ok => { if (ok) tick(); });
+});
+
+(async function boot() {
+  if (location.protocol === 'file:') {
+    showSetup('Bitte über start.bat öffnen. Twitch-Anmeldung und Player funktionieren nicht bei direkt geöffneten Dateien.');
+    $('loginBtn').hidden = true;
+    return;
+  }
+  const msg = readRedirect();
+  if (!S.token || !S.clientId) return showSetup(msg);
+  try {
+    if (!(await validate())) return loggedOut('Bitte neu anmelden.');
+  } catch {
+    return showSetup('Twitch ist gerade nicht erreichbar. Prüfe deine Internetverbindung und melde dich erneut an.');
+  }
+  startApp();
+})();
+</script>
+</body>
+</html>
