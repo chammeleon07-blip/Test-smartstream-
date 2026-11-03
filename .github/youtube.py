@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sucht die neuesten Videos passender YouTube-Kanäle und schreibt sie nach youtube.json."""
+"""Sucht die neuesten Videos passender YouTube-Kanäle und schreibt sie in youtube.json."""
 import html, json, re, sys, urllib.error, urllib.request
 
 CHANNELS = {
