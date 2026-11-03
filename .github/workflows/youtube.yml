@@ -1,0 +1,33 @@
+name: YouTube-Vorschläge aktualisieren
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/youtube.py
+      - .github/workflows/youtube.yml
+permissions:
+  contents: write
+concurrency:
+  group: youtube
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/youtube.py
+      - name: Änderungen speichern
+        run: |
+          git add youtube.json
+          if git diff --cached --quiet; then
+            echo "Keine neuen Videos"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Neue YouTube-Vorschläge"
+            git push
+          fi
